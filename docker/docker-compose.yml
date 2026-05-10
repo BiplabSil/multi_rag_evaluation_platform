@@ -1,0 +1,46 @@
+version: "3.9"
+
+# Qdrant is hosted on Qdrant Cloud — no local container needed.
+# Set QDRANT_URL and QDRANT_API_KEY in your .env file.
+
+services:
+
+  # ── MySQL ────────────────────────────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: rag_eval
+      MYSQL_USER: raguser
+      MYSQL_PASSWORD: ragpassword
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "raguser", "-pragpassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── API ───────────────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - ../.env          # supplies QDRANT_URL, QDRANT_API_KEY, OPENAI_API_KEY, etc.
+    environment:
+      MYSQL_HOST: mysql  # override to reach the compose-managed MySQL container
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - ../:/app
+
+volumes:
+  mysql_data:

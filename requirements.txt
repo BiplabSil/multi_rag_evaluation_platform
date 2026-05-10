@@ -1,0 +1,35 @@
+# ── API ───────────────────────────────────────────────────────────────────────
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+
+# ── Database ──────────────────────────────────────────────────────────────────
+sqlalchemy
+pymysql
+cryptography      # required by pymysql for auth plugins
+
+# ── Vector Store ──────────────────────────────────────────────────────────────
+qdrant-client
+
+# ── LLM / Embeddings ─────────────────────────────────────────────────────────
+openai==1.35.3
+langchain==0.2.5
+langchain-community==0.2.5
+langchain-openai==0.1.13
+
+# ── Document Loading ──────────────────────────────────────────────────────────
+pypdf
+beautifulsoup4
+
+# ── Evaluation ────────────────────────────────────────────────────────────────
+ragas
+datasets
+
+# ── Testing ───────────────────────────────────────────────────────────────────
+pytest
+pytest-asyncio
+httpx                # required by FastAPI TestClient
+
+# ── Linting ───────────────────────────────────────────────────────────────────
+ruff

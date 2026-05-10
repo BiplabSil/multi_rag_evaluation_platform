@@ -1,62 +1,87 @@
 # Multi-Agent RAG Evaluation Platform
 
-An orchestration system where specialized agents handle ingestion, retrieval, generation, and self-evaluation — with a full CI/CD pipeline that auto-runs RAG evals on every PR using RAGAS/TruLens.
+A production-grade platform for evaluating Retrieval-Augmented Generation (RAG) pipelines
+using multiple specialized agents, MySQL for metadata, and Qdrant for vector search.
 
-# skills covered
+## Architecture Overview
 
-LangGraph / CrewAIRAGRAGAS evalsGitHub ActionsAWS / GCPvector DBobservability
+```
+┌─────────────────────────────────────────────────────┐
+│                    FastAPI Layer                     │
+│         /ingest  /query  /evaluate  /metrics        │
+└──────────────────────┬──────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────┐
+│              Orchestrator Agent                      │
+│   Routes tasks to specialized sub-agents             │
+└───┬──────────────┬──────────────┬───────────────────┘
+    │              │              │
+┌───▼───┐    ┌─────▼────┐  ┌─────▼──────┐
+│Retrieval│  │Generator │  │Evaluator   │
+│ Agent  │  │  Agent   │  │  Agent     │
+└───┬───┘    └─────┬────┘  └─────┬──────┘
+    │              │              │
+┌───▼───┐    ┌─────▼────┐  ┌─────▼──────┐
+│Qdrant │  │  OpenAI  │  │  MySQL     │
+│Vector │  │   LLM    │  │  Metrics   │
+│  DB   │  │          │  │    DB      │
+└───────┘    └──────────┘  └────────────┘
+```
 
-# Wow factor
-"Our CI pipeline fails the build if faithfulness drops below 0.85"
+## Tech Stack
 
-# system overview — data flow
-<img width="991" height="227" alt="image" src="https://github.com/user-attachments/assets/918c17db-be44-40bc-8382-4f34e1487a9d" />
+| Layer        | Technology          |
+|-------------|---------------------|
+| API          | FastAPI + Uvicorn   |
+| Agents       | LangChain Agents    |
+| Vector DB    | Qdrant              |
+| Metadata DB  | MySQL               |
+| LLM          | OpenAI GPT-4o       |
+| Embeddings   | OpenAI Ada-002      |
+| Evaluation   | RAGAS Framework     |
+| Containerize | Docker + Compose    |
+| Testing      | Pytest              |
 
-# the four agents
-<img width="1022" height="305" alt="image" src="https://github.com/user-attachments/assets/254d4ff1-5cad-4b31-ac21-a8293136e93a" />
-<img width="1023" height="313" alt="image" src="https://github.com/user-attachments/assets/0cca9d4d-143d-4106-98f2-e1d082840e46" />
+## Project Structure
 
-# full tech stack
-## Orchestration
-LangGraph (state machine nodes) + LangChain LCEL
-## LLMs
-GPT-4o · Claude 3.5 Sonnet · Cohere (reranking)
-## Vector DB
-ChromaDB (local dev/test)
-## Embeddings
-text-embedding-3-large · cached in Redis
-## Evaluation
-RAGAS · TruLens · custom LLM-as-judge prompts
-## Observability
-LangSmith · OpenTelemetry → Grafana · Sentry
-## Backend API
-FastAPI · Celery workers · Redis broker
-## Data store
-local folder (raw docs, eval snapshots)
-## Cloud
-AWS ECS Fargate · ECR · RDS · ElastiCache (Redis)
-## IaC
-Terraform · modules for ECS task defs, VPC, RDS, ECR
-## CI/CD
-GitHub Actions · Docker multi-stage · pytest + RAGAS eval suite
-## Frontend
-Next.js dashboard · Recharts · real-time score streaming
+```
+rag_eval_platform/
+├── agents/           # Specialized agent implementations
+├── api/              # FastAPI routes and schemas
+├── core/             # Config, database connections
+├── evaluation/       # RAGAS-based evaluation logic
+├── ingestion/        # Document loading and chunking
+├── models/           # SQLAlchemy ORM models
+├── services/         # Business logic layer
+├── utils/            # Shared utilities
+├── tests/            # Unit and integration tests
+├── docker/           # Dockerfiles
+└── scripts/          # Setup and migration scripts
+```
 
-# CI/CD pipeline — what runs on every PR
-## 1 lint + unit tests
-ruff, mypy, pytest -m unit · agent logic mocked · <60s
-## 2 Docker build (multi-stage)
-builder → runtime · push to ECR with SHA tag · layer cache via GitHub Actions cache
-## 3 integration tests
-spins up ChromaDB + Postgres in docker-compose · runs 50-query golden dataset end-to-end
-## 4 RAG eval gate passfail
-RAGAS scores computed · faithfulness ≥ 0.85, context_precision ≥ 0.80, answer_relevancy ≥ 0.82 · writes JSON report to S3 · posts as GitHub Check
-## 5 Terraform plan (on main)
-tf plan posted as PR comment · tf apply only after manual approval
-## 6 deploy to ECS staging
-blue/green via CodeDeploy · smoke test hits /health + /eval/latest · rollback on 5xx spike
+## Quick Start
 
-<img width="978" height="217" alt="image" src="https://github.com/user-attachments/assets/af199181-2d62-4c7e-b0a6-567bae34d93a" />
+```bash
+# 1. Clone and setup environment
+cp .env.example .env
+# Fill in your API keys and DB credentials
 
-# what makes this stand out
- Most RAG demos stop at "it retrieves and answers." This project treats RAG as a software system — with a CI gate that fails builds on quality regression, infra-as-code, observability traces, cost tracking per query, and an agent that evaluates itself. That's the gap between a demo and production engineering.
+# 2. Start infrastructure
+docker-compose up -d mysql qdrant
+
+# 3. Run DB migrations
+python scripts/migrate.py
+
+# 4. Start the API
+uvicorn api.main:app --reload --port 8000
+
+# 5. Ingest sample documents
+python scripts/ingest_sample.py
+```
+
+## Evaluation Metrics
+
+- **Faithfulness**: Does the answer stick to retrieved context?
+- **Answer Relevancy**: Is the answer relevant to the question?
+- **Context Precision**: Are retrieved chunks actually useful?
+- **Context Recall**: Were all relevant chunks retrieved?
