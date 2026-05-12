@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     app_env: str = "development"
     log_level: str = "INFO"
 
+    # ── LangSmith ─────────────────────────────────────────────────────────────
+    langsmith_tracing: str = "false"
+    langsmith_endpoint: str = ""
+    langsmith_api_key: str = ""
+    langsmith_project: str = ""
+
     #This turns a method into an attribute. Without it you'd call settings.mysql_url() with parentheses. With it, you just write settings.mysql_url like a normal variable
     @property
     def mysql_url(self) -> str:

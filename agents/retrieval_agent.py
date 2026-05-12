@@ -12,13 +12,16 @@ Responsibilities:
 
 from dataclasses import dataclass, field
 
-from openai import OpenAI
+from langchain_openai import OpenAIEmbeddings
 
 from core.config import get_settings
 from core.vector_store import get_qdrant_client, search_vectors
 
 _settings = get_settings()
-_openai = OpenAI(api_key=_settings.openai_api_key)
+_embeddings = OpenAIEmbeddings(
+    api_key=_settings.openai_api_key,
+    model=_settings.embedding_model,
+)
 
 
 @dataclass
@@ -68,11 +71,9 @@ class RetrievalAgent:
         Returns:
             Embedding vector (list of floats).
         """
-        response = _openai.embeddings.create(
-            input=query,
-            model=_settings.embedding_model,
-        )
-        return response.data[0].embedding
+        # Use LangChain's OpenAIEmbeddings for LangSmith tracing compatibility
+        embedding = _embeddings.embed_query(query)
+        return embedding
 
     def run(self, query: str) -> RetrievalResult:
         """Retrieve the most relevant chunks for ``query``.

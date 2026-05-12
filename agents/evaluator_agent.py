@@ -28,6 +28,10 @@ from agents.generator_agent import GeneratorResult
 from core.config import get_settings
 os.environ["OPENAI_API_KEY"] = get_settings().openai_api_key
 
+
+original = os.environ.get("LANGCHAIN_TRACING_V2")
+os.environ["LANGCHAIN_TRACING_V2"] = "false"
+
 @dataclass
 class EvalScores:
     """RAGAS evaluation scores for a single QA sample.
@@ -92,7 +96,12 @@ class EvaluatorAgent:
             context_recall,
         ]
 
-        result = evaluate(dataset, metrics=metrics)
+        try:
+            result = evaluate(dataset, metrics=metrics)
+        finally:
+            if original:
+                os.environ["LANGCHAIN_TRACING_V2"] = original
+        
         scores_dict = result.to_pandas().iloc[0].to_dict()
 
         return EvalScores(

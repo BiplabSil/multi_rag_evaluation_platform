@@ -3,7 +3,7 @@ agents/orchestrator.py
 -----------------------
 Orchestrator Agent — the single entry point for the multi-agent pipeline.
 
-Coordinates the three specialist agents in sequence:
+Coordinates the three specialist agents using LangGraph state machine.
 
     User Query
         │
@@ -17,12 +17,14 @@ Coordinates the three specialist agents in sequence:
     EvaluatorAgent  ──→  RAGAS quality scores
         │
         ▼
-    PipelineResult  ──→  persisted to MySQL, returned to API
+    PersistNode    ──→  persisted to MySQL, returned to API
 """
 
 import math
 from dataclasses import dataclass
+from typing import TypedDict
 
+from langgraph.graph import END, START, StateGraph
 from sqlalchemy.orm import Session
 
 from agents.evaluator_agent import EvalScores, EvaluatorAgent
@@ -70,8 +72,19 @@ class PipelineResult:
     scores: EvalScores
 
 
+class PipelineState(TypedDict):
+    """State for the LangGraph pipeline."""
+    question: str
+    db: Session
+    ground_truth: str | None
+    retrieval: RetrievalResult | None
+    generation: GeneratorResult | None
+    scores: EvalScores | None
+    query_id: str | None
+
+
 class Orchestrator:
-    """Coordinates the retrieval → generation → evaluation pipeline.
+    """Coordinates the retrieval → generation → evaluation → persist pipeline using LangGraph.
 
     Instantiate once (e.g. as an app-level singleton) and call
     :meth:`run` for each incoming user query.
@@ -93,53 +106,61 @@ class Orchestrator:
         self.generator_agent = GeneratorAgent()
         self.evaluator_agent = EvaluatorAgent()
 
-    def run(
-        self,
-        question: str,
-        db: Session,
-        ground_truth: str | None = None,
-    ) -> PipelineResult:
-        """Execute the full multi-agent pipeline for a user question.
+        # Build the LangGraph
+        self.graph = StateGraph(PipelineState)
+        self.graph.add_node("retrieval", self.retrieval_node)
+        self.graph.add_node("generation", self.generation_node)
+        self.graph.add_node("evaluation", self.evaluation_node)
+        self.graph.add_node("persist", self.persist_node)
 
-        Args:
-            question:     Natural-language query from the user.
-            db:           Active SQLAlchemy session for persisting results.
-            ground_truth: Optional reference answer for context-recall scoring.
+        self.graph.add_edge(START, "retrieval")
+        self.graph.add_edge("retrieval", "generation")
+        self.graph.add_edge("generation", "evaluation")
+        self.graph.add_edge("evaluation", "persist")
+        self.graph.add_edge("persist", END)
 
-        Returns:
-            PipelineResult with all intermediate and final outputs.
-        """
-        # ── Step 1: Retrieve ─────────────────────────────────────────────────
-        retrieval: RetrievalResult = self.retrieval_agent.run(question)
+        self.compiled_graph = self.graph.compile()
 
-        # ── Step 2: Generate ─────────────────────────────────────────────────
-        generation: GeneratorResult = self.generator_agent.run(retrieval)
+    def retrieval_node(self, state: PipelineState) -> dict:
+        """Node for retrieval step."""
+        retrieval = self.retrieval_agent.run(state["question"])
+        return {"retrieval": retrieval}
 
-        # ── Step 3: Evaluate ─────────────────────────────────────────────────
-        scores: EvalScores = self.evaluator_agent.run(generation, ground_truth)
+    def generation_node(self, state: PipelineState) -> dict:
+        """Node for generation step."""
+        generation = self.generator_agent.run(state["retrieval"])
+        return {"generation": generation}
 
-        # ── Step 4: Sanitise scores before saving to MySQL ───────────────────
-        # RAGAS returns NaN when a metric cannot be computed (e.g. no ground
-        # truth for context_recall). MySQL rejects NaN — replace with 0.0.
-        safe_faithfulness        = _safe_float(scores.faithfulness)
-        safe_answer_relevancy    = _safe_float(scores.answer_relevancy)
-        safe_context_precision   = _safe_float(scores.context_precision)
-        safe_context_recall      = _safe_float(scores.context_recall)
+    def evaluation_node(self, state: PipelineState) -> dict:
+        """Node for evaluation step."""
+        scores = self.evaluator_agent.run(state["generation"], state["ground_truth"])
+        return {"scores": scores}
 
-        # Also sanitise the raw_scores dict stored as JSON
+    def persist_node(self, state: PipelineState) -> dict:
+        """Node for persisting results to database."""
+        scores = state["scores"]
+        generation = state["generation"]
+        retrieval = state["retrieval"]
+
+        # Sanitise scores
+        safe_faithfulness = _safe_float(scores.faithfulness)
+        safe_answer_relevancy = _safe_float(scores.answer_relevancy)
+        safe_context_precision = _safe_float(scores.context_precision)
+        safe_context_recall = _safe_float(scores.context_recall)
+
         safe_raw = {
             k: (0.0 if isinstance(v, float) and (math.isnan(v) or math.isinf(v)) else v)
             for k, v in scores.raw.items()
         }
 
-        # ── Step 5: Persist to MySQL ─────────────────────────────────────────
+        # Persist to MySQL
         query_row = Query(
-            question=question,
+            question=state["question"],
             answer=generation.answer,
             retrieved_chunk_ids=retrieval.chunk_ids,
         )
-        db.add(query_row)
-        db.flush()  # get the auto-generated ID before adding EvalResult
+        state["db"].add(query_row)
+        state["db"].flush()
 
         eval_row = EvalResult(
             query_id=query_row.id,
@@ -149,20 +170,50 @@ class Orchestrator:
             context_recall=safe_context_recall,
             raw_scores=safe_raw,
         )
-        db.add(eval_row)
-        db.commit()
+        state["db"].add(eval_row)
+        state["db"].commit()
 
-        # Update scores with sanitised values so the API response is also clean
-        scores.faithfulness      = safe_faithfulness
-        scores.answer_relevancy  = safe_answer_relevancy
+        # Update scores with sanitised values
+        scores.faithfulness = safe_faithfulness
+        scores.answer_relevancy = safe_answer_relevancy
         scores.context_precision = safe_context_precision
-        scores.context_recall    = safe_context_recall
+        scores.context_recall = safe_context_recall
+
+        return {"query_id": query_row.id, "scores": scores}
+
+    def run(
+        self,
+        question: str,
+        db: Session,
+        ground_truth: str | None = None,
+    ) -> PipelineResult:
+        """Execute the full multi-agent pipeline for a user question using LangGraph.
+
+        Args:
+            question:     Natural-language query from the user.
+            db:           Active SQLAlchemy session for persisting results.
+            ground_truth: Optional reference answer for context-recall scoring.
+
+        Returns:
+            PipelineResult with all intermediate and final outputs.
+        """
+        initial_state: PipelineState = {
+            "question": question,
+            "db": db,
+            "ground_truth": ground_truth,
+            "retrieval": None,
+            "generation": None,
+            "scores": None,
+            "query_id": None,
+        }
+
+        final_state = self.compiled_graph.invoke(initial_state)
 
         return PipelineResult(
-            query_id=query_row.id,
+            query_id=final_state["query_id"],
             question=question,
-            answer=generation.answer,
-            retrieval=retrieval,
-            generation=generation,
-            scores=scores,
+            answer=final_state["generation"].answer,
+            retrieval=final_state["retrieval"],
+            generation=final_state["generation"],
+            scores=final_state["scores"],
         )

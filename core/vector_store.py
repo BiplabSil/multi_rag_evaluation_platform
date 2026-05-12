@@ -74,8 +74,8 @@ def upsert_vectors(
         )
         for p in points
     ]
-    for i in range(0, len(points), 50):
-        batch = points[i : i + 50]
+    for i in range(0, len(qdrant_points), 50):
+        batch = qdrant_points[i : i + 50]
         client.upsert(
             collection_name=_settings.qdrant_collection,
             points=batch,

@@ -10,13 +10,18 @@ context is insufficient.
 
 from dataclasses import dataclass
 
-from openai import OpenAI
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import SystemMessage, HumanMessage
 
 from agents.retrieval_agent import RetrievalResult
 from core.config import get_settings
 
 _settings = get_settings()
-_openai = OpenAI(api_key=_settings.openai_api_key)
+_llm = ChatOpenAI(
+    model=_settings.openai_model,
+    api_key=_settings.openai_api_key,
+    temperature=0.0,  # deterministic for evaluation reproducibility
+)
 
 _SYSTEM_PROMPT = """You are a precise question-answering assistant.
 
@@ -90,16 +95,14 @@ class GeneratorAgent:
             f"Question: {retrieval_result.query}"
         )
 
-        response = _openai.chat.completions.create(
-            model=_settings.openai_model,
-            messages=[
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user", "content": user_message},
-            ],
-            temperature=0.0,  # deterministic for evaluation reproducibility
-        )
-
-        answer = response.choices[0].message.content.strip()
+        # Use LangChain's ChatOpenAI for LangSmith tracing compatibility
+        messages = [
+            SystemMessage(content=_SYSTEM_PROMPT),
+            HumanMessage(content=user_message),
+        ]
+        
+        response = _llm.invoke(messages)
+        answer = response.content.strip()
 
         return GeneratorResult(
             question=retrieval_result.query,
