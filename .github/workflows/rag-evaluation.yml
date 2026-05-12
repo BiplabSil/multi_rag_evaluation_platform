@@ -29,17 +29,14 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run benchmark evaluation
-        - name: Run RAG Benchmark
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
-
-          QDRANT_URL: ${{ secrets.QDRANT_URL }}
-          QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
-
           GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPO: ${{ github.repository }}
           GITHUB_HEAD_SHA: ${{ github.sha }}
+          GITHUB_CHECK_NAME: RAGAS Evaluation
+          GITHUB_FAILURE_THRESHOLD: 0.7
 
         run: |
           python scripts/run_benchmark.py
