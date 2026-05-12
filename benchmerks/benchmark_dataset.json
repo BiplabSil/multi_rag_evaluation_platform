@@ -1,0 +1,14 @@
+[
+  {
+    "question": "when was APJ Abdul Kalam died?",
+    "ground_truth": "APJ Abdul Kalam died on July 27, 2015."
+  },
+  {
+    "question": "where APJ Abdul Kalam was living?",
+    "ground_truth": "APJ Abdul Kalam was living in Rameshwaram, Tamil Nadu."
+  },
+  {
+    "question": "In which college did APJ Abdul Kalam study?",
+    "ground_truth": "APJ Abdul Kalam studied at Saint Joseph's College, Tiruchirappalli."
+  }
+]

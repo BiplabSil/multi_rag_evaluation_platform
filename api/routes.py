@@ -65,7 +65,7 @@ def ingest(payload: IngestRequest, db: Session = Depends(get_db)):
 # ── Query ─────────────────────────────────────────────────────────────────────
 
 @router.post("/query", response_model=QueryResponse, tags=["Query"])
-def query(payload: QueryRequest, db: Session = Depends(get_db)):
+async def query(payload: QueryRequest, db: Session = Depends(get_db)):
     """Run the multi-agent RAG pipeline for a user question.
 
     Retrieves relevant chunks from Qdrant, generates a grounded answer,
@@ -75,7 +75,7 @@ def query(payload: QueryRequest, db: Session = Depends(get_db)):
     - **ground_truth**: optional reference answer (improves context_recall score)
     """
     try:
-        result = _orchestrator.run(
+        result = await _orchestrator.run(
             question=payload.question,
             db=db,
             ground_truth=payload.ground_truth,

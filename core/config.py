@@ -58,6 +58,13 @@ class Settings(BaseSettings):
     langsmith_api_key: str = ""
     langsmith_project: str = ""
 
+    # ── GitHub Checks ─────────────────────────────────────────────────────────
+    github_api_token: str = ""
+    github_repo: str = ""  # owner/repo
+    github_head_sha: str | None = None
+    github_check_name: str = "RAGAS Evaluation"
+    github_failure_threshold: float = 0.8
+
     #This turns a method into an attribute. Without it you'd call settings.mysql_url() with parentheses. With it, you just write settings.mysql_url like a normal variable
     @property
     def mysql_url(self) -> str:

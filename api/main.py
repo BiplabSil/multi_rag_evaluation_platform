@@ -14,22 +14,25 @@ import logging
 import os
 import sys
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
-from api.routes import router
 from core.config import get_settings
 
 _settings = get_settings()
 
 # ── LangSmith Tracing ─────────────────────────────────────────────────────────
-# Initialize LangSmith tracing if enabled in config
+# Initialize LangSmith tracing before importing API route handlers so the
+# evaluator agent and other imported modules can see tracing environment.
 if _settings.langsmith_tracing.lower() == "true":
     os.environ["LANGSMITH_TRACING"] = "true"
+    os.environ["LANGCHAIN_TRACING_V2"] = "true"
     os.environ["LANGSMITH_ENDPOINT"] = _settings.langsmith_endpoint
     os.environ["LANGSMITH_API_KEY"] = _settings.langsmith_api_key
     os.environ["LANGSMITH_PROJECT"] = _settings.langsmith_project
     logging.info(f"🔗 LangSmith tracing enabled for project: {_settings.langsmith_project}")
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from api.routes import router
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 

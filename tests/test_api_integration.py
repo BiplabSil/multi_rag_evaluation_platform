@@ -7,7 +7,7 @@ Uses FastAPI's TestClient with dependency overrides so no real DB,
 Qdrant, or OpenAI calls are made.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -100,7 +100,7 @@ def test_query_endpoint():
         ),
     )
 
-    with patch("api.routes._orchestrator.run", return_value=fake_result):
+    with patch("api.routes._orchestrator.run", new=AsyncMock(return_value=fake_result)):
         response = client.post(
             "/query",
             json={"question": "What is RAG?"},

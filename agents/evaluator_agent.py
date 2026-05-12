@@ -12,9 +12,12 @@ Metrics computed:
 RAGAS performs these evaluations by calling an LLM internally, so an OpenAI
 API key must be available in the environment.
 """
+import asyncio
+import logging
 import os
 from dataclasses import dataclass
 
+import requests
 from datasets import Dataset
 from ragas import evaluate
 from ragas.metrics import (
@@ -26,8 +29,10 @@ from ragas.metrics import (
 
 from agents.generator_agent import GeneratorResult
 from core.config import get_settings
-os.environ["OPENAI_API_KEY"] = get_settings().openai_api_key
 
+logger = logging.getLogger(__name__)
+settings = get_settings()
+os.environ["OPENAI_API_KEY"] = settings.openai_api_key
 
 original = os.environ.get("LANGCHAIN_TRACING_V2")
 os.environ["LANGCHAIN_TRACING_V2"] = "false"
@@ -65,12 +70,12 @@ class EvaluatorAgent:
         print(f"Faithfulness: {scores.faithfulness:.2f}")
     """
 
-    def run(
+    async def run(
         self,
         generator_result: GeneratorResult,
         ground_truth: str | None = None,
     ) -> EvalScores:
-        """Evaluate a generator result with RAGAS.
+        """Evaluate a generator result with RAGAS asynchronously.
 
         Args:
             generator_result: Output from :class:`agents.generator_agent.GeneratorAgent`.
@@ -95,19 +100,93 @@ class EvaluatorAgent:
             context_precision,
             context_recall,
         ]
-
         try:
-            result = evaluate(dataset, metrics=metrics)
+            result = await asyncio.to_thread(evaluate, dataset, metrics=metrics)
         finally:
             if original:
                 os.environ["LANGCHAIN_TRACING_V2"] = original
         
         scores_dict = result.to_pandas().iloc[0].to_dict()
 
-        return EvalScores(
+        scores = EvalScores(
             faithfulness=float(scores_dict.get("faithfulness", 0.0)),
             answer_relevancy=float(scores_dict.get("answer_relevancy", 0.0)),
             context_precision=float(scores_dict.get("context_precision", 0.0)),
             context_recall=float(scores_dict.get("context_recall", 0.0)),
             raw=scores_dict,
+        )
+
+        await self._trigger_github_check(scores, generator_result.question)
+        return scores
+
+    async def _trigger_github_check(self, scores: EvalScores, question: str) -> None:
+        """Create or update a GitHub check run for the evaluation."""
+        if not self._can_create_check():
+            logger.debug("Skipping GitHub check: missing configuration.")
+            return
+
+        threshold = settings.github_failure_threshold
+        failed = [
+            (metric_name, getattr(scores, metric_name))
+            for metric_name in [
+                "faithfulness",
+                "answer_relevancy",
+                "context_precision",
+                "context_recall",
+            ]
+            if getattr(scores, metric_name) < threshold
+        ]
+
+        conclusion = "success" if not failed else "failure"
+        summary = (
+            "All metrics met the configured threshold."
+            if conclusion == "success"
+            else "One or more metrics fell below the configured threshold."
+        )
+
+        text_lines = [
+            f"Question: {question}",
+            "",
+            "Metrics:",
+            *[
+                f"- {metric}: {value:.2f} (threshold: {threshold:.2f})"
+                for metric, value in [
+                    ("faithfulness", scores.faithfulness),
+                    ("answer_relevancy", scores.answer_relevancy),
+                    ("context_precision", scores.context_precision),
+                    ("context_recall", scores.context_recall),
+                ]
+            ],
+        ]
+
+        payload = {
+            "name": settings.github_check_name,
+            "head_sha": settings.github_head_sha,
+            "status": "completed",
+            "conclusion": conclusion,
+            "output": {
+                "title": "RAGAS evaluation",
+                "summary": summary,
+                "text": "\n".join(text_lines),
+            },
+        }
+
+        url = f"https://api.github.com/repos/{settings.github_repo}/check-runs"
+        headers = {
+            "Authorization": f"Bearer {settings.github_api_token}",
+            "Accept": "application/vnd.github+json",
+        }
+
+        try:
+            response = await asyncio.to_thread(requests.post, url, json=payload, headers=headers)
+            response.raise_for_status()
+            logger.info("GitHub check run posted with conclusion=%s", conclusion)
+        except Exception as exc:
+            logger.exception("Failed to post GitHub check run: %s", exc)
+
+    def _can_create_check(self) -> bool:
+        return bool(
+            settings.github_api_token
+            and settings.github_repo
+            and settings.github_head_sha
         )

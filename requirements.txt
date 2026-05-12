@@ -36,3 +36,6 @@ httpx                # required by FastAPI TestClient
 
 # ── Linting ───────────────────────────────────────────────────────────────────
 ruff
+
+
+cohere

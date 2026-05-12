@@ -131,9 +131,9 @@ class Orchestrator:
         generation = self.generator_agent.run(state["retrieval"])
         return {"generation": generation}
 
-    def evaluation_node(self, state: PipelineState) -> dict:
+    async def evaluation_node(self, state: PipelineState) -> dict:
         """Node for evaluation step."""
-        scores = self.evaluator_agent.run(state["generation"], state["ground_truth"])
+        scores = await self.evaluator_agent.run(state["generation"], state["ground_truth"])
         return {"scores": scores}
 
     def persist_node(self, state: PipelineState) -> dict:
@@ -181,7 +181,7 @@ class Orchestrator:
 
         return {"query_id": query_row.id, "scores": scores}
 
-    def run(
+    async def run(
         self,
         question: str,
         db: Session,
@@ -207,7 +207,7 @@ class Orchestrator:
             "query_id": None,
         }
 
-        final_state = self.compiled_graph.invoke(initial_state)
+        final_state = await self.compiled_graph.ainvoke(initial_state)
 
         return PipelineResult(
             query_id=final_state["query_id"],
