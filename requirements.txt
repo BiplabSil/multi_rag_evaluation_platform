@@ -27,7 +27,8 @@ beautifulsoup4
 # ── Evaluation ────────────────────────────────────────────────────────────────
 ragas
 datasets
-
+# ── Reranking / Sparse Retrieval ─────────────────────────────────────────────────
+cohere
 # ── Testing ───────────────────────────────────────────────────────────────────
 pytest
 pytest-asyncio

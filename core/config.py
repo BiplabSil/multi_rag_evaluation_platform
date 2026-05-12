@@ -37,6 +37,16 @@ class Settings(BaseSettings):
     chunk_size: int = 512
     chunk_overlap: int = 50
     top_k_retrieval: int = 5
+    bm25_candidate_multiplier: int = 5
+    hyde_generation_count: int = 3
+    hyde_search_multiplier: int = 2
+    query_rewrite_model: str = "gpt-4o-mini"
+    hyde_model: str = "gpt-4o-mini"
+    dense_sparse_mix_weight: float = 0.65
+
+    # ── Cohere ─────────────────────────────────────────────────────────────────
+    cohere_api_key: str | None = None
+    cohere_rerank_model: str = "rerank-v4.0-pro"
 
     # ── App ───────────────────────────────────────────────────────────────────
     app_env: str = "development"
