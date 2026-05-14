@@ -18,17 +18,17 @@ from typing import Any
 import math
 import requests
 from collections import Counter
-from langchain_openai import OpenAIEmbeddings
+#from langchain_openai import OpenAIEmbeddings
 from openai import OpenAI
 
 from core.config import get_settings
 from core.vector_store import get_qdrant_client, search_vectors
 
 _settings = get_settings()
-_embeddings = OpenAIEmbeddings(
-    api_key=_settings.openai_api_key,
-    model=_settings.embedding_model,
-)
+# _embeddings = OpenAIEmbeddings(
+#     api_key=_settings.openai_api_key,
+#     model=_settings.embedding_model,
+# )
 _openai = OpenAI(api_key=_settings.openai_api_key)
 
 
@@ -140,7 +140,13 @@ class RetrievalAgent:
 
     def _embed_query(self, query: str) -> list[float]:
         """Embed a query string into a dense vector."""
-        return _embeddings.embed_query(query)
+
+        response = _openai.embeddings.create(
+            model=_settings.embedding_model,
+            input=query,
+        )
+
+        return response.data[0].embedding
 
     def _dedupe_candidates(self, candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Keep only the highest-scoring candidate for each unique Qdrant point."""
