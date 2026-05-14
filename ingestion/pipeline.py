@@ -94,16 +94,24 @@ def _embed_texts(texts: list[str]) -> list[list[float]]:
 
 # ── Main ingest function ──────────────────────────────────────────────────────
 
-def ingest_document(source: str, source_type: str, db: Session) -> Document:
+def ingest_document(
+    source: str,
+    source_type: str,
+    db: Session,
+    document_name: str | None = None,
+    document_version: str | None = None,
+) -> Document:
     """Full ingestion pipeline for a single document.
 
     Loads, chunks, embeds, and stores the document; returns the ORM Document
     record with its auto-assigned ID.
 
     Args:
-        source:      File path or URL.
-        source_type: ``pdf``, ``txt``, or ``url``.
-        db:          Active SQLAlchemy session.
+        source:           File path or URL.
+        source_type:      ``pdf``, ``txt``, or ``url``.
+        db:               Active SQLAlchemy session.
+        document_name:   Optional human-readable name for the document.
+        document_version: Optional version string for the document.
 
     Returns:
         Persisted :class:`models.orm.Document` instance.
@@ -133,7 +141,13 @@ def ingest_document(source: str, source_type: str, db: Session) -> Document:
             {
                 "id": vector_id,
                 "vector": vector,
-                "payload": {"text": text, "document_id": doc_id, "chunk_index": idx},
+                "payload": {
+                    "text": text,
+                    "document_id": doc_id,
+                    "document_name": document_name,
+                    "document_version": document_version,
+                    "chunk_index": idx,
+                },
             }
         )
         chunk_records.append(
@@ -151,6 +165,8 @@ def ingest_document(source: str, source_type: str, db: Session) -> Document:
     document = Document(
         id=doc_id,
         filename=filename,
+        document_name=document_name,
+        version=document_version,
         source_type=source_type,
         total_chunks=len(chunks),
     )

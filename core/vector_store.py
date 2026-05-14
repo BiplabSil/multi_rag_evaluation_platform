@@ -108,3 +108,113 @@ def search_vectors(
         {"id": r.id, "score": r.score, "payload": r.payload}
         for r in results.points
     ]
+
+
+def search_by_metadata(
+    client: QdrantClient,
+    document_name: str | None = None,
+    document_version: str | None = None,
+) -> list[dict[str, Any]]:
+    """Search for vectors by metadata filters.
+
+    Args:
+        client:           Connected Qdrant client.
+        document_name:    Filter by document_name in payload.
+        document_version: Filter by document_version in payload.
+
+    Returns:
+        List of dicts with ``id`` and ``payload`` keys matching the filters.
+    """
+    must_conditions = []
+    if document_name is not None:
+        must_conditions.append(
+            qdrant_models.FieldCondition(
+                key="document_name",
+                match=qdrant_models.MatchValue(value=document_name),
+            )
+        )
+    if document_version is not None:
+        must_conditions.append(
+            qdrant_models.FieldCondition(
+                key="document_version",
+                match=qdrant_models.MatchValue(value=document_version),
+            )
+        )
+
+    if not must_conditions:
+        raise ValueError("At least one filter (document_name or document_version) must be provided.")
+
+    results = client.query_points(
+        collection_name=_settings.qdrant_collection,
+        query_filter=qdrant_models.Filter(must=must_conditions),
+        limit=1000,
+        with_payload=True,
+    )
+    return [
+        {"id": r.id, "payload": r.payload}
+        for r in results.points
+    ]
+
+
+def delete_by_metadata(
+    client: QdrantClient,
+    document_name: str | None = None,
+    document_version: str | None = None,
+    document_id: str | None = None,
+) -> int:
+    """Delete vectors from Qdrant based on metadata filters.
+
+    Args:
+        client:           Connected Qdrant client.
+        document_name:    Delete all chunks with this document_name.
+        document_version: Delete all chunks with this document_version.
+        document_id:      Delete all chunks with this document_id.
+
+    Returns:
+        Number of points deleted.
+    """
+    must_conditions = []
+    if document_name is not None:
+        must_conditions.append(
+            qdrant_models.FieldCondition(
+                key="document_name",
+                match=qdrant_models.MatchValue(value=document_name),
+            )
+        )
+    if document_version is not None:
+        must_conditions.append(
+            qdrant_models.FieldCondition(
+                key="document_version",
+                match=qdrant_models.MatchValue(value=document_version),
+            )
+        )
+    if document_id is not None:
+        must_conditions.append(
+            qdrant_models.FieldCondition(
+                key="document_id",
+                match=qdrant_models.MatchValue(value=document_id),
+            )
+        )
+
+    if not must_conditions:
+        raise ValueError("At least one filter (document_name, document_version, or document_id) must be provided.")
+
+    # First, get the points to delete
+    results = client.query_points(
+        collection_name=_settings.qdrant_collection,
+        query_filter=qdrant_models.Filter(must=must_conditions),
+        limit=1000,
+        with_payload=False,
+    )
+
+    if not results.points:
+        return 0
+
+    point_ids = [r.id for r in results.points]
+
+    client.delete(
+        collection_name=_settings.qdrant_collection,
+        points_selector=point_ids,
+    )
+
+    return len(point_ids)

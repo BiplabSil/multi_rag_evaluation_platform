@@ -18,8 +18,12 @@ from sqlalchemy.orm import Session
 
 from agents.orchestrator import Orchestrator
 from api.schemas import (
+    DocumentDeleteRequest,
+    DocumentDeleteResponse,
     IngestRequest,
     IngestResponse,
+    MetadataSearchRequest,
+    MetadataSearchResponse,
     MetricsRow,
     MetricsSummary,
     QueryRequest,
@@ -27,6 +31,7 @@ from api.schemas import (
     ScoresSchema,
 )
 from core.database import get_db
+from core.vector_store import delete_by_metadata, get_qdrant_client, search_by_metadata
 from ingestion.pipeline import ingest_document
 from models.orm import EvalResult, Query
 
@@ -48,9 +53,17 @@ def ingest(payload: IngestRequest, db: Session = Depends(get_db)):
 
     - **source**: file path or URL
     - **source_type**: `pdf`, `txt`, or `url`
+    - **document_name**: optional human-readable name for the document
+    - **document_version**: optional version string for the document
     """
     try:
-        doc = ingest_document(payload.source, payload.source_type, db)
+        doc = ingest_document(
+            payload.source,
+            payload.source_type,
+            db,
+            document_name=payload.document_name,
+            document_version=payload.document_version,
+        )
     except Exception as exc:
         logger.exception("Ingestion failed: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -58,7 +71,82 @@ def ingest(payload: IngestRequest, db: Session = Depends(get_db)):
     return IngestResponse(
         document_id=doc.id,
         filename=doc.filename,
+        document_name=doc.document_name,
+        document_version=doc.version,
         total_chunks=doc.total_chunks,
+    )
+
+
+# ── Metadata Search ───────────────────────────────────────────────────────────
+
+@router.post("/search-by-metadata", response_model=MetadataSearchResponse, tags=["Metadata"])
+def search_by_doc_metadata(payload: MetadataSearchRequest):
+    """Search for stored document chunks by metadata filters.
+
+    Use this to find all chunks from a specific document version without
+    performing a semantic search.
+
+    - **document_name**: filter by the document_name stored in vector metadata
+    - **document_version**: filter by the document_version stored in vector metadata
+
+    At least one filter is required.
+    """
+    if not payload.document_name and not payload.document_version:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one of document_name or document_version must be provided.",
+        )
+
+    try:
+        client = get_qdrant_client()
+        results = search_by_metadata(
+            client,
+            document_name=payload.document_name,
+            document_version=payload.document_version,
+        )
+    except Exception as exc:
+        logger.exception("Metadata search failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return MetadataSearchResponse(results=results, total=len(results))
+
+
+# ── Document Delete ───────────────────────────────────────────────────────────
+
+@router.delete("/documents", response_model=DocumentDeleteResponse, tags=["Metadata"])
+def delete_documents(payload: DocumentDeleteRequest):
+    """Delete document chunks from the vector store by metadata filters.
+
+    Use this to remove old versions of a document (e.g., hr_policy_1.0) from
+    the vector database before uploading a new version.
+
+    - **document_name**: delete all chunks with this document_name
+    - **document_version**: delete all chunks with this document_version
+    - **document_id**: delete all chunks with this document_id (from MySQL)
+
+    At least one filter is required.
+    """
+    if not payload.document_name and not payload.document_version and not payload.document_id:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one of document_name, document_version, or document_id must be provided.",
+        )
+
+    try:
+        client = get_qdrant_client()
+        deleted_count = delete_by_metadata(
+            client,
+            document_name=payload.document_name,
+            document_version=payload.document_version,
+            document_id=payload.document_id,
+        )
+    except Exception as exc:
+        logger.exception("Document deletion failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return DocumentDeleteResponse(
+        deleted_count=deleted_count,
+        message=f"Successfully deleted {deleted_count} chunks from the vector store.",
     )
 
 

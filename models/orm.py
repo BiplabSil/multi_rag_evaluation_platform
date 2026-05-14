@@ -39,6 +39,8 @@ class Document(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    document_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    version: Mapped[str | None] = mapped_column(String(50), nullable=True)
     source_type: Mapped[str] = mapped_column(String(50), nullable=False)  # pdf | txt | url
     total_chunks: Mapped[int] = mapped_column(default=0)
     created_at: Mapped[datetime.datetime] = mapped_column(
