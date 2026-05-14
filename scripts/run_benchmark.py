@@ -26,8 +26,7 @@ async def evaluate_question(sample):
 
     generator = GeneratorAgent()
     generator_result = generator.run(
-        question=question,
-        contexts=retrieval_result.chunks,
+        retrieval_result
     )
 
     evaluator = EvaluatorAgent()
