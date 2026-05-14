@@ -110,7 +110,7 @@ class EvaluatorAgent:
 
         scores = EvalScores(
             faithfulness=float(scores_dict.get("faithfulness", 0.0)),
-            answer_relevancy=float(scores_dict.get("answer_relevancy", 0.0)),
+            answer_relevancy=float(scores_dict.get("answer_relevancy") if scores_dict.get("answer_relevancy") == scores_dict.get("answer_relevancy") else 0.0),
             context_precision=float(scores_dict.get("context_precision", 0.0)),
             context_recall=float(scores_dict.get("context_recall", 0.0)),
             raw=scores_dict,
@@ -171,7 +171,7 @@ class EvaluatorAgent:
             },
         }
 
-        url = f"https://api.github.com/repos/{settings.github_repo}/check-runs"
+        url = f"https://api.github.com/repos/{settings.github_repo}/statuses/{settings.github_head_sha}"
         headers = {
             "Authorization": f"Bearer {settings.github_api_token}",
             "Accept": "application/vnd.github+json",
