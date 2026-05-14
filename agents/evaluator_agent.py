@@ -160,29 +160,43 @@ class EvaluatorAgent:
         ]
 
         payload = {
-            "name": settings.github_check_name,
-            "head_sha": settings.github_head_sha,
-            "status": "completed",
-            "conclusion": conclusion,
-            "output": {
-                "title": "RAGAS evaluation",
-                "summary": summary,
-                "text": "\n".join(text_lines),
-            },
+            "state": conclusion,
+            "description": "RAG benchmark",
+            "context": "ragas-eval",
         }
 
+        print("PAYLOAD:", payload)
+
         url = f"https://api.github.com/repos/{settings.github_repo}/statuses/{settings.github_head_sha}"
+
         headers = {
             "Authorization": f"Bearer {settings.github_api_token}",
             "Accept": "application/vnd.github+json",
         }
 
         try:
-            response = await asyncio.to_thread(requests.post, url, json=payload, headers=headers)
+            response = await asyncio.to_thread(
+                requests.post,
+                url,
+                json=payload,
+                headers=headers,
+            )
+
+            print("STATUS:", response.status_code)
+            print("RESPONSE:", response.text)
+
             response.raise_for_status()
-            logger.info("GitHub check run posted with conclusion=%s", conclusion)
+
+            logger.info(
+                "GitHub status posted with conclusion=%s",
+                conclusion,
+            )
+
         except Exception as exc:
-            logger.exception("Failed to post GitHub check run: %s", exc)
+            logger.exception(
+                "Failed to post GitHub status: %s",
+                exc,
+            )
 
     def _can_create_check(self) -> bool:
         return bool(

@@ -25,7 +25,7 @@ pypdf
 beautifulsoup4
 
 # ── Evaluation ────────────────────────────────────────────────────────────────
-ragas
+ragas>=0.1.9
 datasets
 # ── Reranking / Sparse Retrieval ─────────────────────────────────────────────────
 cohere
