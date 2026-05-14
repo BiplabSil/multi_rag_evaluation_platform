@@ -29,6 +29,7 @@ from ragas.metrics import (
 
 from agents.generator_agent import GeneratorResult
 from core.config import get_settings
+from langchain_openai import OpenAIEmbeddings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -36,6 +37,9 @@ os.environ["OPENAI_API_KEY"] = settings.openai_api_key
 
 original = os.environ.get("LANGCHAIN_TRACING_V2")
 os.environ["LANGCHAIN_TRACING_V2"] = "false"
+
+# Initialize embeddings for RAGAS
+_embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 
 @dataclass
 class EvalScores:
@@ -74,17 +78,39 @@ class EvaluatorAgent:
         self,
         generator_result: GeneratorResult,
         ground_truth: str | None = None,
+        enable_github_check: bool = False,
     ) -> EvalScores:
         """Evaluate a generator result with RAGAS asynchronously.
 
         Args:
-            generator_result: Output from :class:`agents.generator_agent.GeneratorAgent`.
+            generator_result:   Output from :class:`agents.generator_agent.GeneratorAgent`.
             ground_truth:     Optional reference answer. Required for
-                              ``context_recall``; if omitted that metric returns 0.
+                              ``context_recall``; if omitted that metric is skipped.
+            enable_github_check: If True, post GitHub status check (for CI runs).
+                              Default False (skip for user queries).
 
         Returns:
-            :class:`EvalScores` with all four metric values.
+            :class:`EvalScores` with all four metric values. If ground_truth
+            is not provided, context_recall will be 0.0 but other metrics will
+            still show real scores.
         """
+        # Determine metrics based on ground truth availability
+        has_ground_truth = ground_truth and ground_truth.strip()
+
+        # Metrics that work without ground truth
+        base_metrics = [faithfulness, answer_relevancy, context_precision]
+
+        # Set embeddings for each metric to avoid NaN issues
+        for metric in base_metrics:
+            metric.embeddings = _embeddings
+
+        # Add context_recall only when ground truth is available
+        if has_ground_truth:
+            metrics = base_metrics + [context_recall]
+            context_recall.embeddings = _embeddings
+        else:
+            metrics = base_metrics
+
         # RAGAS expects a HuggingFace Dataset with specific column names
         sample = {
             "question": [generator_result.question],
@@ -93,48 +119,79 @@ class EvaluatorAgent:
             "ground_truth": [ground_truth or ""],
         }
         dataset = Dataset.from_dict(sample)
-
-        metrics = [
-            faithfulness,
-            answer_relevancy,
-            context_precision,
-            context_recall,
-        ]
         try:
             result = await asyncio.to_thread(evaluate, dataset, metrics=metrics)
         finally:
             if original:
                 os.environ["LANGCHAIN_TRACING_V2"] = original
-        
+
         scores_dict = result.to_pandas().iloc[0].to_dict()
 
+        # Debug: Log raw RAGAS output to understand what's being returned
+        logger.debug(f"RAGAS raw scores: {scores_dict}")
+
+        # Helper to safely extract float, handling NaN
+        def safe_float(value, default=0.0):
+            if value is None:
+                return default
+            try:
+                import math
+                if math.isnan(value):
+                    logger.warning(f"NaN detected for metric, using default {default}")
+                    return default
+            except (TypeError, ValueError):
+                pass
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return default
+
+        computed_metrics = list(scores_dict.keys())
+        logger.debug(f"Computed metrics: {computed_metrics}")
+
         scores = EvalScores(
-            faithfulness=float(scores_dict.get("faithfulness", 0.0)),
-            answer_relevancy=float(scores_dict.get("answer_relevancy") if scores_dict.get("answer_relevancy") == scores_dict.get("answer_relevancy") else 0.0),
-            context_precision=float(scores_dict.get("context_precision", 0.0)),
-            context_recall=float(scores_dict.get("context_recall", 0.0)),
+            faithfulness=safe_float(scores_dict.get("faithfulness")),
+            answer_relevancy=safe_float(scores_dict.get("answer_relevancy")),
+            context_precision=safe_float(scores_dict.get("context_precision")),
+            # context_recall is 0.0 when not computed (no ground truth)
+            context_recall=safe_float(scores_dict.get("context_recall")) if has_ground_truth else 0.0,
             raw=scores_dict,
         )
 
-        await self._trigger_github_check(scores, generator_result.question)
+        logger.info(
+            f"Evaluation complete: faithfulness={scores.faithfulness}, "
+            f"answer_relevancy={scores.answer_relevancy}, "
+            f"context_precision={scores.context_precision}, "
+            f"context_recall={scores.context_recall}"
+        )
+
+        if enable_github_check:
+            await self._trigger_github_check(scores, generator_result.question, computed_metrics)
         return scores
 
-    async def _trigger_github_check(self, scores: EvalScores, question: str) -> None:
+    async def _trigger_github_check(
+        self, scores: EvalScores, question: str, computed_metrics: list[str]
+    ) -> None:
         """Create or update a GitHub check run for the evaluation."""
         if not self._can_create_check():
             logger.debug("Skipping GitHub check: missing configuration.")
             return
 
         threshold = settings.github_failure_threshold
+
+        # Only evaluate metrics that were actually computed
+        metrics_to_check = []
+        if "faithfulness" in computed_metrics:
+            metrics_to_check.append(("faithfulness", scores.faithfulness))
+        if "answer_relevancy" in computed_metrics:
+            metrics_to_check.append(("answer_relevancy", scores.answer_relevancy))
+        if "context_precision" in computed_metrics:
+            metrics_to_check.append(("context_precision", scores.context_precision))
+        if "context_recall" in computed_metrics:
+            metrics_to_check.append(("context_recall", scores.context_recall))
+
         failed = [
-            (metric_name, getattr(scores, metric_name))
-            for metric_name in [
-                "faithfulness",
-                "answer_relevancy",
-                "context_precision",
-                "context_recall",
-            ]
-            if getattr(scores, metric_name) < threshold
+            (name, value) for name, value in metrics_to_check if value < threshold
         ]
 
         conclusion = "success" if not failed else "failure"
@@ -150,12 +207,7 @@ class EvaluatorAgent:
             "Metrics:",
             *[
                 f"- {metric}: {value:.2f} (threshold: {threshold:.2f})"
-                for metric, value in [
-                    ("faithfulness", scores.faithfulness),
-                    ("answer_relevancy", scores.answer_relevancy),
-                    ("context_precision", scores.context_precision),
-                    ("context_recall", scores.context_recall),
-                ]
+                for metric, value in metrics_to_check
             ],
         ]
 

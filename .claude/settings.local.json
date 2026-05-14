@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python *)",
+      "Bash(uvicorn api.main:app *)",
+      "Bash(pip show *)",
+      "Bash(pip install *)",
+      "Bash(tasklist)",
+      "Bash(findstr python *)",
+      "Bash(taskkill *)",
+      "PowerShell(pip install *)",
+      "Bash(Invoke-RestMethod *)"
+    ]
+  }
+}
