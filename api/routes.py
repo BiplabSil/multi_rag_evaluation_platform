@@ -36,7 +36,7 @@ from ingestion.pipeline import ingest_document
 from models.orm import EvalResult, Query
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(prefix="/api")
 
 # App-level orchestrator singleton (avoid re-creating agents per request)
 _orchestrator = Orchestrator()
