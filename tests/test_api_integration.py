@@ -53,6 +53,8 @@ def test_ingest_endpoint():
     fake_doc = MagicMock()
     fake_doc.id = "doc-abc"
     fake_doc.filename = "test.txt"
+    fake_doc.document_name = None
+    fake_doc.version = None
     fake_doc.total_chunks = 5
 
     with patch("api.routes.ingest_document", return_value=fake_doc):

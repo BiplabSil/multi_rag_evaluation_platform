@@ -27,14 +27,21 @@ def sample_generator_result():
 
 @pytest.fixture
 def mock_ragas_result():
-    """Mock RAGAS evaluation result."""
+    """Mock RAGAS evaluation result that returns actual score values."""
+    # Create a proper mock row that returns actual values when to_dict is called
+    class MockRow:
+        def __init__(self):
+            self._data = {
+                "faithfulness": 0.95,
+                "answer_relevancy": 0.90,
+                "context_precision": 0.88,
+                "context_recall": 0.85,
+            }
+        def to_dict(self):
+            return self._data
+
     mock_df = MagicMock()
-    mock_df.iloc = [MagicMock(to_dict=lambda: {
-        "faithfulness": 0.95,
-        "answer_relevancy": 0.90,
-        "context_precision": 0.88,
-        "context_recall": 0.85,
-    })]
+    mock_df.iloc = [MockRow()]
     return mock_df
 
 

@@ -41,8 +41,10 @@ def test_ensure_collection_creates_new(mock_qdrant_client, mock_settings):
     )
     mock_settings.qdrant_collection = "test_collection"
 
-    from core.vector_store import ensure_collection
-    ensure_collection(mock_qdrant_client)
+    with patch("core.vector_store.get_settings", return_value=mock_settings):
+        with patch("core.vector_store._settings", mock_settings):
+            from core.vector_store import ensure_collection
+            ensure_collection(mock_qdrant_client)
 
     mock_qdrant_client.create_collection.assert_called_once()
 
@@ -52,10 +54,14 @@ def test_ensure_collection_skips_existing(mock_qdrant_client, mock_settings):
     mock_qdrant_client.get_collections.return_value = MagicMock(
         collections=[MagicMock(name="test_collection")]
     )
+
+    # Need to patch both the get_settings and the module-level _settings
     mock_settings.qdrant_collection = "test_collection"
 
-    from core.vector_store import ensure_collection
-    ensure_collection(mock_qdrant_client)
+    with patch("core.vector_store.get_settings", return_value=mock_settings):
+        with patch("core.vector_store._settings", mock_settings):
+            from core.vector_store import ensure_collection
+            ensure_collection(mock_qdrant_client)
 
     mock_qdrant_client.create_collection.assert_not_called()
 
