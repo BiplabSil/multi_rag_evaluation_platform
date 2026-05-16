@@ -450,15 +450,15 @@ Beautiful frontend with:
 
 | Feature | Strengths | Weaknesses |
 |---------|-----------|------------|
-| **Hybrid Search** | ✅ Better accuracy than pure embedding or keyword<br>✅ Captures semantic meaning AND exact keywords<br>✅ Handles diverse query types | ❌ Higher computational cost (two search paths)<br>❌ More complex weight tuning<br>❌ Slower than single-method |
-| **HyDE** | ✅ Significantly improves recall<br>✅ Better semantic matching<br>✅ Works well for abstract queries | ❌ Extra LLM call per query (cost)<br>❌ Latency increase<br>❌ May mislead on edge cases |
-| **Query Rewrite** | ✅ Cleans messy queries<br>✅ Improves precision<br>✅ Handles conversational input | ❌ Extra LLM call (cost)<br>⚠️ May lose nuance<br>⚠️ Rewritten query may not match intent |
-| **Cohere Reranking** | ✅ Major accuracy boost<br>✅ Better precision<br>✅ Handles complex relevance | ❌ Additional API call (cost)<br>❌ Only top candidates reranked<br>❌ Third-party dependency |
-| **RAGAS Evaluation** | ✅ Industry-standard metrics<br>✅ Comprehensive quality assessment<br>✅ No manual labeling needed | ❌ LLM-based evaluation (cost)<br>⚠️ Context recall needs ground truth<br>⚠️ NaN values possible |
-| **Temperature 0.0** | ✅ Reproducible results<br>✅ Fair comparisons<br>✅ Consistent behavior | ❌ Less creative answers<br>❌ May miss contextual variations |
-| **LangGraph Orchestration** | ✅ Clean state management<br>✅ Visualizable pipeline<br>✅ Easy debugging<br>✅ Built-in async | ❌ Additional abstraction layer<br>❌ More setup code<br>❌ Learning curve |
-| **MySQL + Qdrant** | ✅ ACID compliance (MySQL)<br>✅ Fast vector search (Qdrant)<br>✅ Clear separation of concerns | ❌ Two systems to maintain<br>❌ Data sync complexity<br>❌ Additional infrastructure cost |
-| **Dashboard** | ✅ Beautiful UI<br>✅ Easy to use<br>✅ Real-time metrics | ❌ React app needs npm install<br>❌ Requires separate port |
+| **Hybrid Search** |  Better accuracy than pure embedding or keyword<br> Captures semantic meaning AND exact keywords<br> Handles diverse query types |  Higher computational cost (two search paths)<br> More complex weight tuning<br> Slower than single-method |
+| **HyDE** |  Significantly improves recall<br> Better semantic matching<br> Works well for abstract queries |  Extra LLM call per query (cost)<br> Latency increase<br> May mislead on edge cases |
+| **Query Rewrite** |  Cleans messy queries<br> Improves precision<br> Handles conversational input |  Extra LLM call (cost)<br> May lose nuance<br> Rewritten query may not match intent |
+| **Cohere Reranking** |  Major accuracy boost<br> Better precision<br> Handles complex relevance |  Additional API call (cost)<br> Only top candidates reranked<br> Third-party dependency |
+| **RAGAS Evaluation** |  Industry-standard metrics<br> Comprehensive quality assessment<br> No manual labeling needed |  LLM-based evaluation (cost)<br> Context recall needs ground truth<br> NaN values possible |
+| **Temperature 0.0** |  Reproducible results<br> Fair comparisons<br> Consistent behavior |  Less creative answers<br> May miss contextual variations |
+| **LangGraph Orchestration** |  Clean state management<br> Visualizable pipeline<br> Easy debugging<br> Built-in async |  Additional abstraction layer<br> More setup code<br> Learning curve |
+| **MySQL + Qdrant** |  ACID compliance (MySQL)<br> Fast vector search (Qdrant)<br> Clear separation of concerns |  Two systems to maintain<br> Data sync complexity<br> Additional infrastructure cost |
+| **Dashboard** |  Beautiful UI<br> Easy to use<br> Real-time metrics |  React app needs npm install<br> Requires separate port |
 
 ### Summary
 
