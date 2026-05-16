@@ -33,7 +33,7 @@ from api.schemas import (
 from core.database import get_db
 from core.vector_store import delete_by_metadata, get_qdrant_client, search_by_metadata
 from ingestion.pipeline import ingest_document
-from models.orm import EvalResult, Query
+from models.orm import Chunk, Document, EvalResult, Query
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api")
@@ -72,7 +72,7 @@ def ingest(payload: IngestRequest, db: Session = Depends(get_db)):
         document_id=doc.id,
         filename=doc.filename,
         document_name=doc.document_name,
-        document_version=doc.version,
+        document_version=str(doc.version) if doc.version is not None else None,
         total_chunks=doc.total_chunks,
     )
 
@@ -113,12 +113,13 @@ def search_by_doc_metadata(payload: MetadataSearchRequest):
 
 # ── Document Delete ───────────────────────────────────────────────────────────
 
-@router.delete("/documents", response_model=DocumentDeleteResponse, tags=["Metadata"])
-def delete_documents(payload: DocumentDeleteRequest):
+@router.post("/documents/delete", response_model=DocumentDeleteResponse, tags=["Metadata"])
+def delete_documents(payload: DocumentDeleteRequest, db: Session = Depends(get_db)):
     """Delete document chunks from the vector store by metadata filters.
 
     Use this to remove old versions of a document (e.g., hr_policy_1.0) from
-    the vector database before uploading a new version.
+    the vector database before uploading a new version. Also deletes associated
+    records from MySQL (documents and chunks tables).
 
     - **document_name**: delete all chunks with this document_name
     - **document_version**: delete all chunks with this document_version
@@ -133,20 +134,57 @@ def delete_documents(payload: DocumentDeleteRequest):
         )
 
     try:
+        # Step 1: Find matching documents in MySQL
+        from sqlalchemy import select
+        from models.orm import Document, Chunk
+
+        doc_filter = []
+        if payload.document_id:
+            doc_filter.append(Document.id == payload.document_id)
+        if payload.document_name:
+            doc_filter.append(Document.document_name == payload.document_name)
+        if payload.document_version:
+            doc_filter.append(Document.version == payload.document_version)
+
+        stmt = select(Document).where(*doc_filter)
+        documents = db.execute(stmt).scalars().all()
+
+        # Collect document IDs to delete from Qdrant
+        doc_ids = [doc.id for doc in documents]
+
+        # Step 2: Delete from MySQL (chunks + documents)
+        deleted_chunks_count = 0
+        if doc_ids:
+            # Delete chunks first (explicit delete to get count)
+            chunks_stmt = select(Chunk).where(Chunk.document_id.in_(doc_ids))
+            chunks = db.execute(chunks_stmt).scalars().all()
+            deleted_chunks_count = len(chunks)
+            for chunk in chunks:
+                db.delete(chunk)
+
+            # Delete documents
+            for doc in documents:
+                db.delete(doc)
+
+            db.commit()
+            logger.info(f"Deleted {deleted_chunks_count} chunks and {len(documents)} documents from MySQL")
+
+        # Step 3: Delete from Qdrant
         client = get_qdrant_client()
-        deleted_count = delete_by_metadata(
+        qdrant_deleted_count = delete_by_metadata(
             client,
             document_name=payload.document_name,
             document_version=payload.document_version,
             document_id=payload.document_id,
         )
+
     except Exception as exc:
         logger.exception("Document deletion failed: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     return DocumentDeleteResponse(
-        deleted_count=deleted_count,
-        message=f"Successfully deleted {deleted_count} chunks from the vector store.",
+        deleted_count=qdrant_deleted_count,
+        message=f"Successfully deleted {qdrant_deleted_count} chunks from Qdrant and {deleted_chunks_count} records from MySQL.",
     )
 
 
@@ -246,3 +284,76 @@ def metrics(limit: int = 20, db: Session = Depends(get_db)):
 def health():
     """Liveness probe. Returns 200 OK when the service is up."""
     return {"status": "ok"}
+
+
+# ── Tables ────────────────────────────────────────────────────────────────────
+
+@router.get("/tables", tags=["Tables"])
+def get_tables_data(db: Session = Depends(get_db)):
+    """Return real-time data from all 4 MySQL tables.
+
+    Returns documents, chunks, queries, and eval_results tables with their data.
+    """
+    # Get all documents
+    documents = db.execute(select(Document).order_by(Document.created_at.desc()).limit(100)).scalars().all()
+    documents_data = [
+        {
+            "id": d.id,
+            "filename": d.filename,
+            "document_name": d.document_name,
+            "version": d.version,
+            "source_type": d.source_type,
+            "total_chunks": d.total_chunks,
+            "created_at": d.created_at.isoformat() if d.created_at else None,
+        }
+        for d in documents
+    ]
+
+    # Get all chunks (limit 100)
+    chunks = db.execute(select(Chunk).order_by(Chunk.created_at.desc()).limit(100)).scalars().all()
+    chunks_data = [
+        {
+            "id": c.id,
+            "document_id": c.document_id,
+            "chunk_index": c.chunk_index,
+            "text": c.text[:200] + "..." if len(c.text) > 200 else c.text,
+            "vector_id": c.vector_id,
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+        }
+        for c in chunks
+    ]
+
+    # Get all queries (limit 100)
+    queries = db.execute(select(Query).order_by(Query.created_at.desc()).limit(100)).scalars().all()
+    queries_data = [
+        {
+            "id": q.id,
+            "question": q.question,
+            "answer": q.answer[:200] + "..." if q.answer and len(q.answer) > 200 else q.answer,
+            "retrieved_chunk_ids": q.retrieved_chunk_ids,
+            "created_at": q.created_at.isoformat() if q.created_at else None,
+        }
+        for q in queries
+    ]
+
+    # Get all eval_results (limit 100)
+    eval_results = db.execute(select(EvalResult).order_by(EvalResult.evaluated_at.desc()).limit(100)).scalars().all()
+    eval_results_data = [
+        {
+            "id": e.id,
+            "query_id": e.query_id,
+            "faithfulness": e.faithfulness,
+            "answer_relevancy": e.answer_relevancy,
+            "context_precision": e.context_precision,
+            "context_recall": e.context_recall,
+            "evaluated_at": e.evaluated_at.isoformat() if e.evaluated_at else None,
+        }
+        for e in eval_results
+    ]
+
+    return {
+        "documents": {"count": len(documents_data), "data": documents_data},
+        "chunks": {"count": len(chunks_data), "data": chunks_data},
+        "queries": {"count": len(queries_data), "data": queries_data},
+        "eval_results": {"count": len(eval_results_data), "data": eval_results_data},
+    }

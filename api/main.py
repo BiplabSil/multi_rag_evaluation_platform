@@ -14,6 +14,7 @@ import logging
 import os
 import sys
 
+from contextlib import asynccontextmanager
 from core.config import get_settings
 
 _settings = get_settings()
@@ -33,6 +34,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes import router
+from core.vector_store import ensure_collection, get_qdrant_client
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 
@@ -42,9 +44,25 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
 )
 
+# ── App lifecycle ─────────────────────────────────────────────────────────────
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize Qdrant collection and indexes on startup."""
+    try:
+        client = get_qdrant_client()
+        ensure_collection(client)
+        logging.info("Qdrant collection and indexes initialized")
+    except Exception as exc:
+        logging.warning(f"Could not initialize Qdrant collection: {exc}")
+    yield
+
+
 # ── App factory ───────────────────────────────────────────────────────────────
 
 app = FastAPI(
+    lifespan=lifespan,
     title="Multi-Agent RAG Evaluation Platform",
     description=(
         "Ingest documents, query them with a multi-agent RAG pipeline, "

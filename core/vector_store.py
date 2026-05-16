@@ -13,9 +13,11 @@ from typing import Any
 
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qdrant_models
+import logging
 
 from core.config import get_settings
 
+logger = logging.getLogger(__name__)
 _settings = get_settings()
 
 
@@ -40,7 +42,9 @@ def ensure_collection(client: QdrantClient, vector_size: int = 1536) -> None:
         vector_size: Dimensionality of the embedding vectors (1536 for Ada-002).
     """
     existing = {c.name for c in client.get_collections().collections}
+    logger.info(f"Existing collections: {existing}")
     if _settings.qdrant_collection not in existing:
+        logger.info(f"Creating collection: {_settings.qdrant_collection}")
         client.create_collection(
             collection_name=_settings.qdrant_collection,
             vectors_config=qdrant_models.VectorParams(
@@ -48,6 +52,40 @@ def ensure_collection(client: QdrantClient, vector_size: int = 1536) -> None:
                 distance=qdrant_models.Distance.COSINE,
             ),
         )
+        # Create indexes for metadata fields used in filtering
+        _create_metadata_indexes(client)
+    else:
+        logger.info(f"Collection {_settings.qdrant_collection} exists, ensuring indexes")
+        # Ensure indexes exist on existing collection
+        _ensure_metadata_indexes(client)
+
+
+def _create_metadata_indexes(client: QdrantClient) -> None:
+    """Create indexes on metadata fields for filtering."""
+    from qdrant_client.http.models import KeywordIndexType
+
+    for field in ["document_name", "document_version", "document_id"]:
+        client.create_payload_index(
+            collection_name=_settings.qdrant_collection,
+            field_name=field,
+            field_schema=qdrant_models.KeywordIndexParams(type=KeywordIndexType.KEYWORD),
+        )
+
+
+def _ensure_metadata_indexes(client: QdrantClient) -> None:
+    """Ensure indexes exist on existing collection. Creates if missing."""
+    from qdrant_client.http.models import KeywordIndexType
+
+    for field in ["document_name", "document_version", "document_id"]:
+        try:
+            client.create_payload_index(
+                collection_name=_settings.qdrant_collection,
+                field_name=field,
+                field_schema=qdrant_models.KeywordIndexParams(type=KeywordIndexType.KEYWORD),
+            )
+            logger.info(f"Created index for field: {field}")
+        except Exception as e:
+            logger.debug(f"Index for {field} may already exist: {e}")
 
 
 def upsert_vectors(

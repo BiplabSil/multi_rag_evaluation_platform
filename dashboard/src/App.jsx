@@ -28,6 +28,7 @@ import IngestionForm from './components/IngestionForm';
 import ChatSection from './components/ChatSection';
 import MetricsDashboard from './components/MetricsDashboard';
 import CleanupSection from './components/CleanupSection';
+import TablesSection from './components/TablesSection';
 
 /**
  * Tab configuration with icons and labels
@@ -37,6 +38,7 @@ const TABS = [
   { id: 'chat', label: 'Chat', icon: MessageSquare },
   { id: 'metrics', label: 'Metrics', icon: BarChart3 },
   { id: 'cleanup', label: 'Cleanup', icon: Trash2 },
+  { id: 'tables', label: 'Tables', icon: Database },
 ];
 
 /**
@@ -151,6 +153,8 @@ function App() {
             onError={(err) => showToast(err.message, 'error')}
           />
         );
+      case 'tables':
+        return <TablesSection />;
       default:
         return <IngestionForm />;
     }

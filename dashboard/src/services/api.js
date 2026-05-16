@@ -104,8 +104,8 @@ export async function searchByMetadata(payload) {
  * @returns {Promise<object>} - DocumentDeleteResponse with deleted_count
  */
 export async function deleteDocuments(payload) {
-  return fetchAPI('/api/documents', {
-    method: 'DELETE',
+  return fetchAPI('/api/documents/delete', {
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 }
@@ -124,6 +124,15 @@ export async function checkHealth() {
   }
 }
 
+/**
+ * Tables Service - Get Real-time Table Data
+ * Fetch all data from the 4 MySQL tables (documents, chunks, queries, eval_results)
+ * @returns {Promise<object>} - Object with count and data for each table
+ */
+export async function getTablesData() {
+  return fetchAPI('/api/tables');
+}
+
 export default {
   ingestDocument,
   submitQuery,
@@ -131,4 +140,5 @@ export default {
   searchByMetadata,
   deleteDocuments,
   checkHealth,
+  getTablesData,
 };
