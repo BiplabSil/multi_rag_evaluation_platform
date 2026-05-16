@@ -230,9 +230,11 @@ At least one filter required.
 # 8. Document Delete Route
 
 ```python
-@router.delete("/documents", response_model=DocumentDeleteResponse, tags=["Metadata"])
+@router.post("/documents/delete", response_model=DocumentDeleteResponse, tags=["Metadata"])
 def delete_documents(payload: DocumentDeleteRequest):
 ```
+
+**Note**: Uses POST instead of DELETE for the endpoint.
 
 ---
 
@@ -434,7 +436,47 @@ Handles empty database gracefully.
 
 ---
 
-# 11. Health Route
+# 11. Tables Route (New!)
+
+```python
+@router.get("/tables", tags=["Tables"])
+def get_tables_data(db: Session = Depends(get_db)):
+```
+
+---
+
+## Purpose
+
+View real-time data from all 4 MySQL tables:
+- documents
+- chunks
+- queries
+- eval_results
+
+---
+
+## Use Case
+
+Debugging and inspecting database state.
+
+---
+
+## Response
+
+```json
+{
+  "documents": {"count": 5, "data": [...]},
+  "chunks": {"count": 200, "data": [...]},
+  "queries": {"count": 150, "data": [...]},
+  "eval_results": {"count": 150, "data": [...]}
+}
+```
+
+Each table shows count and sample data (limited to 100 rows).
+
+---
+
+# 12. Health Route
 
 ```python
 @router.get("/health", tags=["Ops"])
@@ -469,6 +511,7 @@ Always returns 200 OK when service is up.
 tags=["Ingestion"]
 tags=["Query"]
 tags=["Evaluation"]
+tags=["Tables"]
 tags=["Ops"]
 ```
 
@@ -496,9 +539,10 @@ Ops
 |--------|------|----------|---------|
 | POST | /api/ingest | ingest | Add document to vector DB |
 | POST | /api/search-by-metadata | search_by_doc_metadata | Find chunks by metadata |
-| DELETE | /api/documents | delete_documents | Remove chunks by metadata |
+| POST | /api/documents/delete | delete_documents | Remove chunks by metadata |
 | POST | /api/query | query | Run full RAG pipeline |
 | GET | /api/metrics | metrics | Get evaluation statistics |
+| GET | /api/tables | get_tables_data | View all MySQL table data |
 | GET | /api/health | health | Health check |
 
 ---

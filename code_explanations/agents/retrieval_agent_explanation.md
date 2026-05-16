@@ -131,18 +131,10 @@ Used heavily in BM25.
 ---
 
 ```python
-from langchain_openai import OpenAIEmbeddings
+# from langchain_openai import OpenAIEmbeddings  # (commented out, not used)
 ```
 
-Used to convert text → vectors (embeddings).
-
-Example:
-
-```text
-"I love AI"
-↓
-[0.123, 0.98, 0.44, ...]
-```
+The original LangChain OpenAIEmbeddings is no longer used.
 
 ---
 
@@ -150,7 +142,10 @@ Example:
 from openai import OpenAI
 ```
 
-Used to call OpenAI models directly.
+Used to call OpenAI models directly for:
+- Query rewriting
+- HyDE generation
+- Creating embeddings
 
 ---
 
@@ -203,16 +198,10 @@ Loads application settings.
 ---
 
 ```python
-_embeddings = OpenAIEmbeddings(
-    api_key=_settings.openai_api_key,
-    model=_settings.embedding_model,
-)
+# _embeddings = OpenAIEmbeddings(...)  # (commented out, not used)
 ```
 
-Creates embedding model object.
-
-Purpose:
-- convert text → vectors.
+The original LangChain embeddings object is now commented out.
 
 ---
 
@@ -223,8 +212,9 @@ _openai = OpenAI(api_key=_settings.openai_api_key)
 Creates OpenAI client.
 
 Used for:
-- query rewriting
-- HyDE generation
+- query rewriting (via responses API)
+- HyDE generation (via responses API)
+- creating embeddings (via embeddings API)
 
 ---
 
@@ -568,10 +558,14 @@ Becomes:
 # 12. _embed_query()
 
 ```python
-return _embeddings.embed_query(query)
+response = _openai.embeddings.create(
+    model=_settings.embedding_model,
+    input=query,
+)
+return response.data[0].embedding
 ```
 
-Converts text → vector.
+Uses OpenAI embeddings API directly.
 
 Example:
 
