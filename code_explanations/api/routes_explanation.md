@@ -101,6 +101,18 @@ Document ingestion logic.
 
 ---
 
+```python
+from models.orm import Chunk, Document, EvalResult, Query
+```
+
+SQLAlchemy ORM models for the 4 database tables:
+- Document: ingested documents
+- Chunk: text chunks with embeddings
+- Query: user queries and answers
+- EvalResult: evaluation scores
+
+---
+
 # 4. Router Setup
 
 ```python
@@ -231,7 +243,7 @@ At least one filter required.
 
 ```python
 @router.post("/documents/delete", response_model=DocumentDeleteResponse, tags=["Metadata"])
-def delete_documents(payload: DocumentDeleteRequest):
+def delete_documents(payload: DocumentDeleteRequest, db: Session = Depends(get_db)):
 ```
 
 **Note**: Uses POST instead of DELETE for the endpoint.
@@ -246,6 +258,59 @@ Example:
 - Delete "hr_policy" v1.0
 - Upload v2.0
 - No duplicate/old data
+
+---
+
+## Three-Step Deletion Process
+
+```python
+# Step 1: Find matching documents in MySQL
+doc_filter = []
+if payload.document_id:
+    doc_filter.append(Document.id == payload.document_id)
+if payload.document_name:
+    doc_filter.append(Document.document_name == payload.document_name)
+if payload.document_version:
+    doc_filter.append(Document.version == payload.document_version)
+
+documents = db.execute(select(Document).where(*doc_filter)).scalars().all()
+doc_ids = [doc.id for doc in documents]
+
+# Step 2: Delete from MySQL (chunks + documents)
+chunks_stmt = select(Chunk).where(Chunk.document_id.in_(doc_ids))
+chunks = db.execute(chunks_stmt).scalars().all()
+deleted_chunks_count = len(chunks)
+for chunk in chunks:
+    db.delete(chunk)
+for doc in documents:
+    db.delete(doc)
+db.commit()
+
+# Step 3: Delete from Qdrant
+qdrant_deleted_count = delete_by_metadata(
+    client,
+    document_name=payload.document_name,
+    document_version=payload.document_version,
+    document_id=payload.document_id,
+)
+```
+
+This deletes from BOTH:
+- **MySQL**: Document and Chunk tables
+- **Qdrant**: Vector database
+
+---
+
+## Response
+
+```python
+DocumentDeleteResponse(
+    deleted_count=qdrant_deleted_count,
+    message=f"Successfully deleted {qdrant_deleted_count} chunks from Qdrant and {deleted_chunks_count} records from MySQL.",
+)
+```
+
+Shows counts from both systems.
 
 ---
 
@@ -539,7 +604,7 @@ Ops
 |--------|------|----------|---------|
 | POST | /api/ingest | ingest | Add document to vector DB |
 | POST | /api/search-by-metadata | search_by_doc_metadata | Find chunks by metadata |
-| POST | /api/documents/delete | delete_documents | Remove chunks by metadata |
+| POST | /api/documents/delete | delete_documents | Remove from Qdrant + MySQL |
 | POST | /api/query | query | Run full RAG pipeline |
 | GET | /api/metrics | metrics | Get evaluation statistics |
 | GET | /api/tables | get_tables_data | View all MySQL table data |

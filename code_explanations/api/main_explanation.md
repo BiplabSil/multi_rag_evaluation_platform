@@ -256,21 +256,78 @@ Reads from settings:
 
 ---
 
-# 10. Startup Flow
+# 10. Lifespan Context Manager
+
+```python
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize Qdrant collection and indexes on startup."""
+    try:
+        client = get_qdrant_client()
+        ensure_collection(client)
+        logging.info("Qdrant collection and indexes initialized")
+    except Exception as exc:
+        logging.warning(f"Could not initialize Qdrant collection: {exc}")
+    yield
+```
+
+---
+
+## What is asynccontextmanager?
+
+This creates a context manager for startup/shutdown logic.
+
+It runs when the server **starts** (before yield) and can run cleanup code **after** yield when the server stops.
+
+---
+
+## What Happens on Startup?
+
+1. `get_qdrant_client()` - Connect to Qdrant
+2. `ensure_collection(client)` - Create collection + indexes
+3. Create metadata indexes for document_name, document_version, document_id
+
+---
+
+## Why Handle Errors?
+
+```python
+except Exception as exc:
+    logging.warning(f"Could not initialize Qdrant collection: {exc}")
+```
+
+If Qdrant is not available, the app still starts. The API can work without Qdrant for metrics viewing and health checks.
+
+---
+
+## App Uses Lifespan
+
+```python
+app = FastAPI(
+    lifespan=lifespan,  # ← This connects the lifespan
+    title="Multi-Agent RAG Evaluation Platform",
+    ...
+)
+```
+
+---
+
+# 11. Startup Flow
 
 ```
 1. Python loads this file
 2. get_settings() runs
 3. LangSmith configured (if enabled)
-4. FastAPI app created
+4. FastAPI app created (with lifespan)
 5. CORS middleware added
 6. Router included
-7. Ready to receive requests!
+7. Server starts → Lifespan runs → Qdrant initialized
+8. Ready to receive requests!
 ```
 
 ---
 
-# 11. Running the API
+# 12. Running the API
 
 ```bash
 uvicorn api.main:app --reload --port 8000

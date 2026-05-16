@@ -30,6 +30,7 @@ A production-grade platform for evaluating Retrieval-Augmented Generation (RAG) 
 | **Frontend** | React 18 + Vite | Dashboard (in `/dashboard`) |
 | **Containerization** | Docker + Docker Compose | Local deployment |
 | **Testing** | Pytest | Unit & integration tests |
+| **Observability** | LangSmith | Agent tracing & debugging |
 
 ---
 
@@ -65,6 +66,15 @@ A production-grade platform for evaluating Retrieval-Augmented Generation (RAG) 
 │    │ (Vectors)   │    │    LLM      │    │  (Metrics)  │                 │
 │    └─────────────┘    └─────────────┘    └─────────────┘                 │
 │                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                         LangSmith Observability                            │
+│              ┌────────────────────────────────────────┐                 │
+│              │  • Agent trace visualization              │                 │
+│              │  • Step-by-step execution debugging      │                 │
+│              │  • Token usage & cost tracking           │                 │
+│              │  • Latency analysis per agent             │                 │
+│              │  • Session history & replay              │                 │
+│              └────────────────────────────────────────┘                 │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -444,6 +454,23 @@ Beautiful frontend with:
 - Metrics visualization (bar charts, cards)
 - Document cleanup interface
 
+### 9. Unit Testing with Pytest
+
+Comprehensive test suite covering:
+- **Agent Tests**: Individual agent behavior (retrieval, generation, evaluation)
+- **API Endpoint Tests**: All routes tested with mocked dependencies
+- **Integration Tests**: End-to-end pipeline validation
+- **Configuration Tests**: Environment variable parsing and defaults
+
+### 10. Golden Dataset Validation in CI/CD
+
+Automated quality assurance pipeline:
+- Pre-configured test questions with known good answers
+- Golden dataset stored in `tests/golden_dataset.json`
+- Validates core metrics (faithfulness, answer_relevancy) against thresholds
+- Integrated into code push workflow to catch regressions before deployment
+- Configurable pass/fail criteria for automated gates
+
 ---
 
 ## Strengths & Weaknesses
@@ -562,6 +589,9 @@ Key environment variables in `.env`:
 | `RERANKER_ENABLED` | `false` | Enable Cohere reranking |
 | `COHERE_API_KEY` | (optional) | For reranking |
 | `GITHUB_API_TOKEN` | (optional) | For CI/CD integration |
+| `LANGSMITH_TRACING` | `false` | Enable LangSmith tracing |
+| `LANGSMITH_PROJECT` | `multi-rag-eval` | LangSmith project name |
+| `LANGSMITH_API_KEY` | (optional) | Your LangSmith API key |
 
 ---
 
