@@ -163,7 +163,7 @@ def test_query_response():
         question="What is RAG?",
         answer="RAG combines retrieval.",
         retrieved_chunks=["chunk1", "chunk2"],
-        scores=ScoresSchema(0.9, 0.8, 0.7, 0.6),
+        scores=ScoresSchema(faithfulness=0.9, answer_relevancy=0.8, context_precision=0.7, context_recall=0.6),
     )
     assert response.query_id == "qid-1"
     assert len(response.retrieved_chunks) == 2

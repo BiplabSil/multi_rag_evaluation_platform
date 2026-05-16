@@ -41,7 +41,7 @@ client = TestClient(app)
 # ── Health ────────────────────────────────────────────────────────────────────
 
 def test_health_check():
-    response = client.get("/health")
+    response = client.get("/api/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
@@ -57,7 +57,7 @@ def test_ingest_endpoint():
 
     with patch("api.routes.ingest_document", return_value=fake_doc):
         response = client.post(
-            "/ingest",
+            "/api/ingest",
             json={"source": "/tmp/test.txt", "source_type": "txt"},
         )
 
@@ -102,7 +102,7 @@ def test_query_endpoint():
 
     with patch("api.routes._orchestrator.run", new=AsyncMock(return_value=fake_result)):
         response = client.post(
-            "/query",
+            "/api/query",
             json={"question": "What is RAG?"},
         )
 

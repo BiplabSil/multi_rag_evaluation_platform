@@ -56,6 +56,7 @@ def mock_settings():
     mock.github_api_token = ""
     mock.github_repo = ""
     mock.github_head_sha = None
+    mock.github_check_name = "RAGAS Evaluation"
 
     with patch("core.config.get_settings", return_value=mock):
         with patch("core.vector_store._settings", mock):

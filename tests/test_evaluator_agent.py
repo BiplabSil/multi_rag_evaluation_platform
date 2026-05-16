@@ -6,7 +6,8 @@ Unit tests for EvaluatorAgent.
 Mocks the RAGAS evaluation to avoid external API calls.
 """
 
-from unittest.mock import MagicMock, patch
+import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -37,12 +38,13 @@ def mock_ragas_result():
     return mock_df
 
 
-def test_evaluator_returns_scores(sample_generator_result, mock_ragas_result):
+@pytest.mark.asyncio
+async def test_evaluator_returns_scores(sample_generator_result, mock_ragas_result):
     """EvaluatorAgent.run() should return EvalScores."""
     with patch("agents.evaluator_agent.evaluate", return_value=mock_ragas_result):
-        with patch("agents.evaluator_agent._embeddings"):
+        with patch("agents.evaluator_agent._embeddings", MagicMock()):
             agent = EvaluatorAgent()
-            result = agent.run(sample_generator_result)
+            result = await agent.run(sample_generator_result)
 
     assert isinstance(result, EvalScores)
     assert result.faithfulness == 0.95
@@ -51,22 +53,24 @@ def test_evaluator_returns_scores(sample_generator_result, mock_ragas_result):
     assert result.context_recall == 0.85
 
 
-def test_evaluator_without_ground_truth(sample_generator_result, mock_ragas_result):
+@pytest.mark.asyncio
+async def test_evaluator_without_ground_truth(sample_generator_result, mock_ragas_result):
     """EvaluatorAgent should set context_recall to 0.0 when no ground truth."""
     with patch("agents.evaluator_agent.evaluate", return_value=mock_ragas_result):
-        with patch("agents.evaluator_agent._embeddings"):
+        with patch("agents.evaluator_agent._embeddings", MagicMock()):
             agent = EvaluatorAgent()
-            result = agent.run(sample_generator_result, ground_truth=None)
+            result = await agent.run(sample_generator_result, ground_truth=None)
 
     assert result.context_recall == 0.0
 
 
-def test_evaluator_with_ground_truth(sample_generator_result, mock_ragas_result):
+@pytest.mark.asyncio
+async def test_evaluator_with_ground_truth(sample_generator_result, mock_ragas_result):
     """EvaluatorAgent should compute context_recall when ground truth provided."""
     with patch("agents.evaluator_agent.evaluate", return_value=mock_ragas_result):
-        with patch("agents.evaluator_agent._embeddings"):
+        with patch("agents.evaluator_agent._embeddings", MagicMock()):
             agent = EvaluatorAgent()
-            result = agent.run(
+            result = await agent.run(
                 sample_generator_result,
                 ground_truth="RAG is retrieval-augmented generation."
             )
@@ -74,25 +78,24 @@ def test_evaluator_with_ground_truth(sample_generator_result, mock_ragas_result)
     assert isinstance(result, EvalScores)
 
 
-def test_safe_float_handles_nan():
+@pytest.mark.asyncio
+async def test_safe_float_handles_nan(sample_generator_result):
     """Test that safe_float handles NaN values."""
-    from agents.evaluator_agent import EvaluatorAgent
     import math
 
-    agent = EvaluatorAgent()
-    # The safe_float is defined inline in run(), so test via actual evaluation
-    with patch("agents.evaluator_agent.evaluate", return_value=mock_ragas_result):
-        with patch("agents.evaluator_agent._embeddings"):
-            # Create a mock result with NaN
-            mock_df = MagicMock()
-            mock_df.iloc = [MagicMock(to_dict=lambda: {
-                "faithfulness": float('nan'),
-                "answer_relevancy": 0.90,
-                "context_precision": 0.88,
-                "context_recall": 0.85,
-            })]
-            with patch("agents.evaluator_agent.evaluate", return_value=mock_df):
-                result = agent.run(sample_generator_result)
+    # Create a mock result with NaN
+    mock_df = MagicMock()
+    mock_df.iloc = [MagicMock(to_dict=lambda: {
+        "faithfulness": float('nan'),
+        "answer_relevancy": 0.90,
+        "context_precision": 0.88,
+        "context_recall": 0.85,
+    })]
+
+    with patch("agents.evaluator_agent.evaluate", return_value=mock_df):
+        with patch("agents.evaluator_agent._embeddings", MagicMock()):
+            agent = EvaluatorAgent()
+            result = await agent.run(sample_generator_result)
 
     # NaN should be converted to 0.0
     assert result.faithfulness == 0.0 or math.isnan(result.faithfulness) == False
