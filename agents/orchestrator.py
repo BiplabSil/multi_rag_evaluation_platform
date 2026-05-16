@@ -108,16 +108,16 @@ class Orchestrator:
 
         # Build the LangGraph
         self.graph = StateGraph(PipelineState)
-        self.graph.add_node("retrieval", self.retrieval_node)
-        self.graph.add_node("generation", self.generation_node)
-        self.graph.add_node("evaluation", self.evaluation_node)
-        self.graph.add_node("persist", self.persist_node)
+        self.graph.add_node("retrieve_chunks", self.retrieval_node)
+        self.graph.add_node("generate_answer", self.generation_node)
+        self.graph.add_node("evaluate_quality", self.evaluation_node)
+        self.graph.add_node("save_results", self.persist_node)
 
-        self.graph.add_edge(START, "retrieval")
-        self.graph.add_edge("retrieval", "generation")
-        self.graph.add_edge("generation", "evaluation")
-        self.graph.add_edge("evaluation", "persist")
-        self.graph.add_edge("persist", END)
+        self.graph.add_edge(START, "retrieve_chunks")
+        self.graph.add_edge("retrieve_chunks", "generate_answer")
+        self.graph.add_edge("generate_answer", "evaluate_quality")
+        self.graph.add_edge("evaluate_quality", "save_results")
+        self.graph.add_edge("save_results", END)
 
         self.compiled_graph = self.graph.compile()
 
