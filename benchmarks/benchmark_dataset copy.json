@@ -1,0 +1,126 @@
+[
+  {
+    "question": "What is the definition of Chronic Kidney Disease (CKD)?",
+    "ground_truth": "CKD is defined as abnormalities of kidney structure or function, present for more than 3 months, with implications for health."
+  },
+  {
+    "question": "What percentage of the global population is affected by CKD?",
+    "ground_truth": "CKD affects approximately 9.1% of the global population."
+  },
+  {
+    "question": "What are the two most common causes of CKD?",
+    "ground_truth": "The two most common causes of CKD are diabetic nephropathy (accounting for 30–40% of all cases) and hypertensive nephrosclerosis (25–30%)."
+  },
+  {
+    "question": "What eGFR range corresponds to KDIGO GFR category G3b?",
+    "ground_truth": "KDIGO GFR category G3b corresponds to an eGFR of 30–44 mL/min/1.73 m², described as moderately to severely decreased, requiring nephrology co-management."
+  },
+  {
+    "question": "What clinical action is recommended for CKD G4 patients?",
+    "ground_truth": "For CKD G4 patients (eGFR 15–29 mL/min/1.73 m²), the recommended clinical actions are renal replacement therapy (RRT) planning and dietitian referral."
+  },
+  {
+    "question": "How is albuminuria category A2 defined?",
+    "ground_truth": "Albuminuria category A2 is defined as an ACR of 30–300 mg/g (3–30 mg/mmol), described as moderately increased, also known as microalbuminuria."
+  },
+  {
+    "question": "Which equation is recommended for eGFR calculation in CKD diagnostic workup?",
+    "ground_truth": "The CKD-EPI 2021 equation is recommended for eGFR calculation; cystatin C is used for borderline cases."
+  },
+  {
+    "question": "What are the indications for kidney biopsy in CKD?",
+    "ground_truth": "Kidney biopsy is indicated when the underlying cause is uncertain and may alter management, including unexplained rapid GFR decline (>5 mL/min/year), nephrotic-range proteinuria without apparent cause, glomerular haematuria, suspected vasculitis or systemic disease affecting kidneys, or atypical presentation of diabetic nephropathy."
+  },
+  {
+    "question": "What are the contraindications for kidney biopsy?",
+    "ground_truth": "Contraindications for kidney biopsy include solitary kidney (relative), uncontrolled hypertension, bleeding diathesis, and an uncooperative patient."
+  },
+  {
+    "question": "What is the recommended dose of Dapagliflozin for CKD management?",
+    "ground_truth": "Dapagliflozin is recommended at 10 mg once daily for CKD G2–G4 with proteinuria (eGFR ≥ 25), T2DM, and heart failure."
+  },
+  {
+    "question": "Why is the combination of ACE inhibitor and ARB contraindicated in CKD?",
+    "ground_truth": "The combination of ACEi + ARB is contraindicated due to increased risk of hyperkalaemia, acute kidney injury, and hypotension without additional benefit, as demonstrated by the ONTARGET trial."
+  },
+  {
+    "question": "What is the blood pressure target for CKD patients?",
+    "ground_truth": "The target blood pressure for CKD patients is less than 120/80 mmHg based on SPRINT and ACCORD trials, with individualisation recommended for elderly or frail patients."
+  },
+  {
+    "question": "What is the role of Finerenone in CKD management?",
+    "ground_truth": "Finerenone (a non-steroidal mineralocorticoid receptor antagonist) at 10–20 mg once daily is indicated for T2DM with CKD and albuminuria despite RAAS blockade. It is started at 10 mg if eGFR is 25–60, and is contraindicated if K+ > 5.0 at initiation, in severe hepatic impairment, or Addison's disease."
+  },
+  {
+    "question": "What is the earliest biochemical marker of CKD-Mineral and Bone Disorder (CKD-MBD)?",
+    "ground_truth": "FGF-23 elevation is the earliest biochemical marker of CKD-MBD, preceding hyperphosphataemia and secondary hyperparathyroidism."
+  },
+  {
+    "question": "What is the target haemoglobin range in CKD-related anaemia?",
+    "ground_truth": "The target haemoglobin in CKD-related anaemia is 10–12 g/dL; levels above 13 g/dL should be avoided due to increased cardiovascular events, as shown by the TREAT trial."
+  },
+  {
+    "question": "What are the target ferritin and TSAT levels when treating iron deficiency in CKD?",
+    "ground_truth": "The targets for iron therapy in CKD are ferritin 200–500 ng/mL and transferrin saturation (TSAT) 20–30%."
+  },
+  {
+    "question": "What is the emergency management protocol for K+ > 6.5 mmol/L or ECG changes in CKD?",
+    "ground_truth": "Emergency management for K+ > 6.5 mmol/L or ECG changes includes IV calcium gluconate 10% (10 mL), insulin-dextrose (10 units soluble insulin + 50 mL 50% glucose), nebulised salbutamol 10–20 mg, and dialysis if refractory."
+  },
+  {
+    "question": "What is the target serum bicarbonate level in CKD, and how is metabolic acidosis treated?",
+    "ground_truth": "The target serum bicarbonate in CKD is ≥ 22 mmol/L. Treatment involves sodium bicarbonate 500 mg–1 g three times daily titrated to serum bicarbonate levels, with sodium citrate as an alternative; a Mediterranean or plant-predominant diet is also recommended to reduce acid load."
+  },
+  {
+    "question": "What does the AEIOU mnemonic stand for in urgent dialysis initiation?",
+    "ground_truth": "The AEIOU mnemonic for urgent dialysis indications stands for: A – Acidosis (pH < 7.1 or bicarbonate < 8 mmol/L refractory to treatment), E – Electrolytes (refractory hyperkalaemia or severe hyponatraemia), I – Intoxication (dialysable toxins like salicylate, lithium, methanol), O – Overload (pulmonary oedema refractory to diuretics), U – Uraemia (uraemic encephalopathy, pericarditis, pleuritis, bleeding diathesis)."
+  },
+  {
+    "question": "What is the minimum haemodialysis adequacy target for Kt/V?",
+    "ground_truth": "The minimum haemodialysis adequacy target is a single-pool Kt/V ≥ 1.2 per session, with a urea reduction ratio (URR) > 65%."
+  },
+  {
+    "question": "What is the preferred vascular access for haemodialysis?",
+    "ground_truth": "The preferred vascular access for haemodialysis is the arteriovenous fistula (AVF), specifically the Brescia-Cimino fistula. An arteriovenous graft (AVG) is used if vessels are unsuitable, and a tunnelled central line is used as temporary access only."
+  },
+  {
+    "question": "What is the peritoneal dialysis adequacy target?",
+    "ground_truth": "The peritoneal dialysis adequacy target is a total weekly Kt/V ≥ 1.7, which includes the residual kidney contribution."
+  },
+  {
+    "question": "What is the most common causative organism in peritoneal dialysis-related peritonitis?",
+    "ground_truth": "Staphylococcus epidermidis is the most common causative organism in peritoneal dialysis-related peritonitis, treated with intraperitoneal antibiotics."
+  },
+  {
+    "question": "At what eGFR level should metformin be avoided in CKD patients?",
+    "ground_truth": "Metformin should be avoided when eGFR is 15–30 mL/min/1.73 m² due to lactic acidosis risk, and is absolutely contraindicated when eGFR is below 15 mL/min/1.73 m² or in patients on haemodialysis."
+  },
+  {
+    "question": "How should gabapentin be dose-adjusted in patients with eGFR < 15 or on haemodialysis?",
+    "ground_truth": "In patients with eGFR < 15 or on haemodialysis, gabapentin should be reduced to 200 mg post-haemodialysis only."
+  },
+  {
+    "question": "Why should NSAIDs be avoided in CKD patients?",
+    "ground_truth": "NSAIDs are nephrotoxic and should be avoided in all stages of CKD. They are absolutely contraindicated when eGFR is 15–30 mL/min/1.73 m² and below, and should only be used with extreme caution for less than 72 hours with adequate hydration and close monitoring in eGFR 30–60."
+  },
+  {
+    "question": "How frequently should eGFR and creatinine be monitored in CKD G4 patients?",
+    "ground_truth": "In CKD G4 patients, eGFR and serum creatinine should be monitored every 3 months."
+  },
+  {
+    "question": "What are the mandatory criteria for nephrology referral in CKD?",
+    "ground_truth": "Mandatory nephrology referral criteria include: eGFR < 30 mL/min/1.73 m² (G4–G5), ideally when eGFR < 45 for RRT planning; rapid progression defined as eGFR decline > 5 mL/min/year or > 25% decline within 12 months; proteinuria > 500–1000 mg/g ACR unexplained or non-responding to treatment; hypertension refractory to 3 agents at maximum dose; persistent hyperkalaemia; anaemia unresponsive to iron; CKD-MBD complications; suspected hereditary kidney disease; and glomerular haematuria or red cell casts."
+  },
+  {
+    "question": "What phosphate binder is preferred in CKD G4–G5 patients, and why?",
+    "ground_truth": "Sevelamer hydrochloride (800–1600 mg three times daily) is the preferred phosphate binder in CKD G4–G5 patients. Calcium carbonate is avoided in these stages due to the risk of vascular calcification."
+  },
+  {
+    "question": "When should renal replacement therapy be discussed with CKD patients?",
+    "ground_truth": "RRT should be discussed proactively when eGFR falls below 20 mL/min/1.73 m² to allow adequate time for patient education, modality selection, and access creation."
+  },
+  {
+    "question": "What is the dosing of Epoetin alfa for anaemia in CKD?",
+    "ground_truth": "Epoetin alfa is dosed at 50–300 units/kg subcutaneously three times per week for anaemia in CKD."
+  }
+]

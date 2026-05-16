@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     """
 
     # ── LLM ──────────────────────────────────────────────────────────────────
-    openai_api_key: str
+    openai_api_key: str = ""
     openai_model: str = "gpt-4o"
     embedding_model: str = "text-embedding-3-small"
 
@@ -29,8 +29,8 @@ class Settings(BaseSettings):
     mysql_database: str = "rag_eval"
 
     # ── Qdrant Cloud ──────────────────────────────────────────────────────────
-    qdrant_url: str                           # e.g. https://xyz.us-east4-0.gcp.cloud.qdrant.io
-    qdrant_api_key: str                       # Qdrant Cloud API key
+    qdrant_url: str = ""                      # e.g. https://xyz.us-east4-0.gcp.cloud.qdrant.io
+    qdrant_api_key: str = ""                  # Qdrant Cloud API key
     qdrant_collection: str = "rag_documents"
 
     # ── RAG knobs ─────────────────────────────────────────────────────────────
