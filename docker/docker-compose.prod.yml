@@ -1,0 +1,83 @@
+version: "3.9"
+
+# Production Docker Compose configuration for Multi-Agent RAG Platform
+# This file is meant to be used with docker-compose -f docker/docker-compose.prod.yml up
+
+services:
+  # ── MySQL ────────────────────────────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-rag_eval}
+      MYSQL_USER: ${MYSQL_USER:-raguser}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${MYSQL_USER:-raguser}", "-p${MYSQL_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rag-network
+
+  # ── API ───────────────────────────────────────────────────────────────────────
+  api:
+    # In production, this would be your ECR image
+    image: ${ECR_REPOSITORY_URI}:${IMAGE_TAG:-latest}
+    # build:  # Uncomment for local builds
+    #   context: ..
+    #   dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      # Database settings
+      MYSQL_HOST: mysql
+      MYSQL_PORT: ${MYSQL_PORT:-3306}
+      MYSQL_USER: ${MYSQL_USER:-raguser}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-rag_eval}
+
+      # Qdrant settings
+      QDRANT_URL: ${QDRANT_URL}
+      QDRANT_API_KEY: ${QDRANT_API_KEY}
+
+      # OpenAI settings
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+
+      # Cohere settings
+      COHERE_API_KEY: ${COHERE_API_KEY}
+
+      # Application settings
+      APP_ENV: production
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+      # LangSmith settings
+      LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
+      LANGSMITH_ENDPOINT: ${LANGSMITH_ENDPOINT}
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY}
+      LANGSMITH_PROJECT: ${LANGSMITH_PROJECT}
+
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - rag-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  mysql_data:
+
+networks:
+  rag-network:
+    driver: bridge

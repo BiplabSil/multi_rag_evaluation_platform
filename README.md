@@ -506,6 +506,14 @@ Automated quality assurance pipeline:
 - OpenAI API key
 - Qdrant Cloud account
 
+### Docker Deployment Options
+
+The platform supports multiple deployment options:
+
+1. **Local Development**: Using Docker Compose (default)
+2. **Production Deployment**: Using Docker with AWS ECR
+3. **Cloud Deployment**: Using AWS ECS or similar container orchestration platforms
+
 ### Step 1: Clone & Setup
 
 ```bash
@@ -570,6 +578,90 @@ npm run dev
 Visit `http://localhost:5173`
 
 ---
+
+## Docker Deployment & AWS ECR Integration
+
+This platform includes built-in support for Docker containerization and automated deployment to AWS ECR through GitHub Actions.
+
+### Deployment Scripts
+
+The platform includes several scripts to help with deployment:
+
+1. **GitHub Actions Workflow**: Automatically builds and deploys to ECR on pushes to `main`
+2. **Shell Script**: `scripts/deploy-to-ecr.sh` for manual deployment on Unix systems
+3. **Batch Script**: `scripts/deploy-to-ecr.bat` for manual deployment on Windows
+4. **Python Script**: `scripts/deploy_to_ecr.py` cross-platform deployment script
+5. **Makefile**: `Makefile` with common deployment targets
+
+### Docker Images
+
+The platform provides two Docker-related configurations:
+
+1. **Development**: `docker/Dockerfile` - Standard development image
+2. **Production**: Configured for AWS ECR deployment via GitHub Actions
+
+### AWS ECR Deployment Process
+
+The GitHub Actions workflow automatically:
+1. Builds Docker images on pushes to the `main` branch
+2. Authenticates with AWS ECR
+3. Pushes images with appropriate tags (branch, SHA, latest)
+4. Runs evaluation tests on the deployed image
+
+### Environment Configuration
+
+For production deployments, environment variables should be configured through:
+- **AWS ECS Task Definitions**
+- **Kubernetes ConfigMaps/Secrets**
+- **Docker Compose environment files**
+
+See `docker/README.md` for detailed deployment instructions.
+
+### Production Deployment Steps
+
+1. Configure AWS credentials in GitHub Secrets:
+   - `AWS_ACCESS_KEY_ID`
+   - `AWS_SECRET_ACCESS_KEY`
+   - `ECR_REPOSITORY_URI`
+
+2. Push to the `main` branch to trigger automated build and deployment
+
+3. For manual deployment, you can use one of these methods:
+
+   **Using Makefile (recommended):**
+   ```bash
+   # Set environment variables
+   export REGISTRY=123456789012.dkr.ecr.us-east-1.amazonaws.com
+   export IMAGE_NAME=multi-rag-platform
+   
+   # Login to ECR and deploy
+   make login-ecr
+   make deploy-ecr
+   ```
+
+   **Using deployment scripts:**
+   ```bash
+   # Unix/Linux/macOS
+   chmod +x scripts/deploy-to-ecr.sh
+   export ECR_REPOSITORY_URI=your-account.dkr.ecr.region.amazonaws.com/your-repo
+   ./scripts/deploy-to-ecr.sh
+   
+   # Windows
+   set ECR_REPOSITORY_URI=your-account.dkr.ecr.region.amazonaws.com/your-repo
+   scripts\deploy-to-ecr.bat
+   
+   # Python script (cross-platform)
+   pip install -r requirements-deploy.txt
+   export ECR_REPOSITORY_URI=your-account.dkr.ecr.region.amazonaws.com/your-repo
+   python scripts/deploy_to_ecr.py
+   ```
+
+4. For production deployment with Docker Compose:
+   ```bash
+   docker-compose -f docker/docker-compose.prod.yml --env-file .env.prod up -d
+   ```
+
+See `docker/README.md` for complete deployment instructions.
 
 ## Configuration
 

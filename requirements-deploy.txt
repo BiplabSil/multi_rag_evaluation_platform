@@ -1,0 +1,5 @@
+# Requirements for deployment scripts
+# These are not part of the main application but are used for deployment automation
+
+boto3==1.34.0  # For AWS interactions in Python scripts (if needed)
+docker==7.1.0   # For Docker interactions in Python scripts (if needed)

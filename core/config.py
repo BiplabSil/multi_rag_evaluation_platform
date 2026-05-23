@@ -3,8 +3,15 @@ core/config.py
 --------------
 Centralised settings loaded from environment variables via Pydantic BaseSettings.
 All other modules import from here — never read os.environ directly.
+
+For Docker deployments, environment variables should be passed via:
+1. Docker run -e flags
+2. Docker Compose environment section
+3. Kubernetes ConfigMaps/Secrets
+4. AWS ECS Task Definitions
 """
 
+import os
 from functools import lru_cache
 from pydantic_settings import BaseSettings
 
@@ -65,6 +72,16 @@ class Settings(BaseSettings):
     github_check_name: str = "RAGAS Evaluation"
     github_failure_threshold: float = 0.1
 
+    # ── Docker/AWS Specific ───────────────────────────────────────────────────
+    # Port for the application to listen on
+    port: int = 8000
+
+    # Host for the application to bind to
+    host: str = "0.0.0.0"
+
+    # Number of worker processes for Uvicorn
+    workers: int = 2
+
     #This turns a method into an attribute. Without it you'd call settings.mysql_url() with parentheses. With it, you just write settings.mysql_url like a normal variable
     @property
     def mysql_url(self) -> str:
@@ -78,8 +95,26 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
 
-#Least Recently Used Cache. It means: run this function once, remember the result, and return the same object every time after that.
+
+# Least Recently Used Cache. It means: run this function once, remember the result, and return the same object every time after that.
 @lru_cache
 def get_settings() -> Settings:
     """Return a cached Settings singleton (avoids re-parsing .env on every call)."""
     return Settings()
+
+
+# For Docker deployments, we might want to expose some utility functions
+def get_docker_environment() -> dict:
+    """Get environment variables relevant for Docker deployments."""
+    settings = get_settings()
+    return {
+        "OPENAI_API_KEY": settings.openai_api_key,
+        "QDRANT_URL": settings.qdrant_url,
+        "QDRANT_API_KEY": settings.qdrant_api_key,
+        "MYSQL_HOST": settings.mysql_host,
+        "MYSQL_USER": settings.mysql_user,
+        "MYSQL_PASSWORD": settings.mysql_password,
+        "MYSQL_DATABASE": settings.mysql_database,
+        "APP_ENV": settings.app_env,
+        "LOG_LEVEL": settings.log_level,
+    }
