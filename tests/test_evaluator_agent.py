@@ -28,21 +28,25 @@ def sample_generator_result():
 @pytest.fixture
 def mock_ragas_result():
     """Mock RAGAS evaluation result that returns actual score values."""
-    # Create a proper mock row that returns actual values when to_dict is called
-    class MockRow:
-        def __init__(self):
-            self._data = {
-                "faithfulness": 0.95,
-                "answer_relevancy": 0.90,
-                "context_precision": 0.88,
-                "context_recall": 0.85,
-            }
-        def to_dict(self):
-            return self._data
+    # Create a mock result that properly mimics the RAGAS evaluate() return value
+    mock_result = MagicMock()
 
+    # Create a mock row that returns actual values when to_dict is called
+    mock_row = MagicMock()
+    mock_row.to_dict.return_value = {
+        "faithfulness": 0.95,
+        "answer_relevancy": 0.90,
+        "context_precision": 0.88,
+        "context_recall": 0.85,
+    }
+
+    # Mock the to_pandas() method to return a DataFrame-like object with iloc
     mock_df = MagicMock()
-    mock_df.iloc = [MockRow()]
-    return mock_df
+    mock_df.iloc = MagicMock()
+    mock_df.iloc.__getitem__.return_value = mock_row
+    mock_result.to_pandas.return_value = mock_df
+
+    return mock_result
 
 
 @pytest.mark.asyncio
@@ -58,7 +62,8 @@ async def test_evaluator_returns_scores(sample_generator_result, mock_ragas_resu
     assert 0.0 <= result.faithfulness <= 1.0
     assert result.answer_relevancy == 0.90
     assert result.context_precision == 0.88
-    assert result.context_recall == 0.85
+    # context_recall should be 0.0 when no ground truth is provided
+    assert result.context_recall == 0.0
 
 
 @pytest.mark.asyncio
