@@ -1,26 +1,12 @@
 /**
  * Chat Component
  * Handles user queries and displays RAG pipeline responses
- *
- * Features:
- * - Submit questions to the RAG pipeline
- * - Display retrieved document chunks
- * - Show evaluation scores (faithfulness, answer_relevancy, context_precision, context_recall)
- * - Beautiful metric cards similar to PowerBI
+ * Uses async job polling pattern to handle long-running RAG pipelines
  */
 import React, { useState } from 'react';
-import { MessageSquare, Send, Loader, Target, Brain, Eye, CheckCircle } from 'lucide-react';
-import { submitQuery } from '../services/api';
+import { MessageSquare, Send, Loader, Target, Brain, Eye, CheckCircle, Clock } from 'lucide-react';
+import { submitQuery, queryJobStatus } from '../services/api';
 
-/**
- * MetricCard Component
- * Displays individual metric as a beautiful card
- * @param {string} label - Metric name
- * @param {number} value - Metric value (0-1)
- * @param {string} icon - Icon component
- * @param {string} color - Color theme ('blue', 'green', 'orange', 'purple')
- * @returns {JSX.Element} - Metric card element
- */
 function MetricCard({ label, value, icon: Icon, color }) {
   const getColorValue = () => {
     if (value >= 0.8) return { bg: 'rgba(34, 197, 94, 0.2)', text: 'var(--accent-green)', label: 'Excellent' };
@@ -28,37 +14,14 @@ function MetricCard({ label, value, icon: Icon, color }) {
     if (value >= 0.4) return { bg: 'rgba(245, 158, 11, 0.2)', text: 'var(--accent-orange)', label: 'Fair' };
     return { bg: 'rgba(239, 68, 68, 0.2)', text: '#ef4444', label: 'Poor' };
   };
-
   const colorStyle = getColorValue();
-
   return (
-    <div
-      style={{
-        padding: '1rem',
-        background: 'var(--bg-secondary)',
-        borderRadius: 12,
-        border: '1px solid var(--border-color)',
-        flex: '1 1 200px',
-        minWidth: 180,
-      }}
-    >
+    <div style={{ padding: '1rem', background: 'var(--bg-secondary)', borderRadius: 12, border: '1px solid var(--border-color)', flex: '1 1 200px', minWidth: 180 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-        <div
-          className={`metric-icon ${color}`}
-          style={{ width: 36, height: 36 }}
-        >
+        <div className={`metric-icon ${color}`} style={{ width: 36, height: 36 }}>
           <Icon size={18} />
         </div>
-        <span
-          style={{
-            padding: '0.25rem 0.5rem',
-            borderRadius: 4,
-            fontSize: '0.75rem',
-            fontWeight: 500,
-            background: colorStyle.bg,
-            color: colorStyle.text,
-          }}
-        >
+        <span style={{ padding: '0.25rem 0.5rem', borderRadius: 4, fontSize: '0.75rem', fontWeight: 500, background: colorStyle.bg, color: colorStyle.text }}>
           {colorStyle.label}
         </span>
       </div>
@@ -72,32 +35,22 @@ function MetricCard({ label, value, icon: Icon, color }) {
   );
 }
 
-/**
- * ChatSection Component
- * @param {function} onMessage - Callback when a new message is sent
- * @returns {JSX.Element} - Chat section component
- */
 function ChatSection({ onMessage }) {
   const [question, setQuestion] = useState('');
   const [groundTruth, setGroundTruth] = useState('');
   const [loading, setLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
   const [currentResponse, setCurrentResponse] = useState(null);
   const [error, setError] = useState(null);
 
-  /**
-   * Handle query submission
-   * Sends question to RAG pipeline and displays response with metrics
-   */
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!question.trim()) {
-      return;
-    }
+    if (!question.trim()) return;
 
     setLoading(true);
     setError(null);
     setCurrentResponse(null);
+    setStatusMessage('Submitting query to backend...');
 
     try {
       const payload = {
@@ -105,27 +58,66 @@ function ChatSection({ onMessage }) {
         ground_truth: groundTruth.trim() || undefined,
       };
 
-      const response = await submitQuery(payload);
-      setCurrentResponse(response);
+      // Submit query and get job_id
+      const submitResponse = await submitQuery(payload);
+      if (!submitResponse.job_id) {
+        throw new Error('No job_id returned from server');
+      }
 
-      if (onMessage) {
-        onMessage(response);
+      const jobId = submitResponse.job_id;
+      console.log('Job submitted:', jobId);
+
+      // Poll for completion
+      let completed = false;
+      let pollAttempts = 0;
+      const maxAttempts = 600; // 10 minutes at 1s intervals
+
+      while (!completed && pollAttempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+
+        try {
+          const statusResponse = await queryJobStatus(jobId);
+          console.log('Status:', statusResponse.status);
+
+          if (statusResponse.status === 'running') {
+            setStatusMessage(`Processing... (${pollAttempts}s elapsed)`);
+          } else if (statusResponse.status === 'completed') {
+            setCurrentResponse(statusResponse.result);
+            setStatusMessage('');
+            if (onMessage) onMessage(statusResponse.result);
+            completed = true;
+          } else if (statusResponse.status === 'failed') {
+            throw new Error(statusResponse.error || 'Pipeline failed');
+          }
+          pollAttempts++;
+        } catch (pollError) {
+          if (pollError.message.includes('not found')) {
+            // Job not yet created in memory, keep polling
+            setStatusMessage('Initializing...');
+          } else {
+            throw pollError;
+          }
+          pollAttempts++;
+        }
+      }
+
+      if (!completed) {
+        throw new Error('Query timeout after 10 minutes');
       }
     } catch (err) {
       setError(err.message || 'Query failed');
+      setStatusMessage('');
     } finally {
       setLoading(false);
     }
   };
 
-  /**
-   * Clear current response
-   */
   const handleClear = () => {
     setQuestion('');
     setGroundTruth('');
     setCurrentResponse(null);
     setError(null);
+    setStatusMessage('');
   };
 
   return (
@@ -193,17 +185,25 @@ function ChatSection({ onMessage }) {
             </button>
 
             {(currentResponse || error) && (
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={handleClear}
-                disabled={loading}
-              >
+              <button type="button" className="btn btn-secondary" onClick={handleClear} disabled={loading}>
                 Clear
               </button>
             )}
           </div>
         </form>
+
+        {/* Progress Status */}
+        {loading && statusMessage && (
+          <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', background: 'var(--bg-input)', borderRadius: 8, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <Clock size={16} style={{ color: 'var(--accent-orange)', flexShrink: 0 }} />
+            <div>
+              <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>{statusMessage}</div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                RAG pipeline takes 3–5 minutes (retrieval → LLM → RAGAS evaluation)
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Response Display */}
@@ -229,7 +229,7 @@ function ChatSection({ onMessage }) {
               Answer
             </div>
             <div style={{ fontSize: '1rem', lineHeight: 1.7, color: 'var(--text-primary)', padding: '1rem', background: 'var(--bg-input)', borderRadius: 8 }}>
-              {currentResponse.answer}
+              {currentResponse.answer || 'No answer received'}
             </div>
           </div>
 
@@ -241,17 +241,7 @@ function ChatSection({ onMessage }) {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 {currentResponse.retrieved_chunks.slice(0, 3).map((chunk, index) => (
-                  <div
-                    key={index}
-                    style={{
-                      padding: '0.75rem',
-                      background: 'var(--bg-input)',
-                      borderRadius: 8,
-                      fontSize: '0.85rem',
-                      color: 'var(--text-secondary)',
-                      borderLeft: '3px solid var(--accent-primary)',
-                    }}
-                  >
+                  <div key={index} style={{ padding: '0.75rem', background: 'var(--bg-input)', borderRadius: 8, fontSize: '0.85rem', color: 'var(--text-secondary)', borderLeft: '3px solid var(--accent-primary)' }}>
                     {chunk.length > 200 ? `${chunk.substring(0, 200)}...` : chunk}
                   </div>
                 ))}
@@ -264,7 +254,7 @@ function ChatSection({ onMessage }) {
             </div>
           )}
 
-          {/* Evaluation Scores - PowerBI Style Cards */}
+          {/* Evaluation Scores */}
           {currentResponse.scores && (
             <div>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -272,30 +262,10 @@ function ChatSection({ onMessage }) {
                 Evaluation Metrics
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-                <MetricCard
-                  label="Faithfulness"
-                  value={currentResponse.scores.faithfulness}
-                  icon={Brain}
-                  color="blue"
-                />
-                <MetricCard
-                  label="Answer Relevancy"
-                  value={currentResponse.scores.answer_relevancy}
-                  icon={Target}
-                  color="green"
-                />
-                <MetricCard
-                  label="Context Precision"
-                  value={currentResponse.scores.context_precision}
-                  icon={Eye}
-                  color="orange"
-                />
-                <MetricCard
-                  label="Context Recall"
-                  value={currentResponse.scores.context_recall}
-                  icon={CheckCircle}
-                  color="purple"
-                />
+                <MetricCard label="Faithfulness" value={currentResponse.scores.faithfulness} icon={Brain} color="blue" />
+                <MetricCard label="Answer Relevancy" value={currentResponse.scores.answer_relevancy} icon={Target} color="green" />
+                <MetricCard label="Context Precision" value={currentResponse.scores.context_precision} icon={Eye} color="orange" />
+                <MetricCard label="Context Recall" value={currentResponse.scores.context_recall} icon={CheckCircle} color="purple" />
               </div>
             </div>
           )}

@@ -56,8 +56,9 @@ class Settings(BaseSettings):
     cohere_rerank_model: str = "rerank-v4.0-pro"
 
     # ── App ───────────────────────────────────────────────────────────────────
-    app_env: str = "development"
+    app_env: str = "production"
     log_level: str = "INFO"
+    frontend_origins: str = "https://d9ypsans2n7vr.cloudfront.net/"
 
     # ── LangSmith ─────────────────────────────────────────────────────────────
     langsmith_tracing: str = "false"

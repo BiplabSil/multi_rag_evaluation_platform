@@ -30,6 +30,8 @@ import MetricsDashboard from './components/MetricsDashboard';
 import CleanupSection from './components/CleanupSection';
 import TablesSection from './components/TablesSection';
 
+const FRONTEND_API_URL = import.meta.env.VITE_API_URL || 'https://x5hp4ju4lj.execute-api.us-east-1.amazonaws.com';
+
 /**
  * Tab configuration with icons and labels
  */
@@ -217,7 +219,7 @@ function App() {
           </div>
           <div className="topbar-right">
             <span className="api-badge">
-              API: http://localhost:8000
+              API: {FRONTEND_API_URL}
             </span>
           </div>
         </header>

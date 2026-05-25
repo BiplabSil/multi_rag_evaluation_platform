@@ -74,11 +74,23 @@ app = FastAPI(
 )
 
 # Allow local frontends / Swagger UI during development
+frontend_origins = [
+    origin.strip()
+    for origin in _settings.frontend_origins.split(",")
+    if origin.strip()
+]
+allowed_origins = ["*"] if _settings.app_env == "development" else frontend_origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if _settings.app_env == "development" else [],
+    allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 app.include_router(router)
+
+#For Lambda Function
+from mangum import Mangum
+handler = Mangum(app, lifespan="off")
